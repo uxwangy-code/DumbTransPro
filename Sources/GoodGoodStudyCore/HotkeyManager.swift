@@ -1,67 +1,65 @@
 import AppKit
+import Carbon.HIToolbox
 
 @MainActor
 public final class HotkeyManager {
     public var onHotkey: (@MainActor () -> Void)?
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
+    private var hotKeyRef: EventHotKeyRef?
+    private var eventHandlerRef: EventHandlerRef?
+
+    // Store a global reference for the C callback
+    private static var instance: HotkeyManager?
 
     public init() {}
 
     public func start() -> Bool {
-        let eventMask: CGEventMask = (1 << CGEventType.keyDown.rawValue)
+        HotkeyManager.instance = self
 
-        let userInfo = Unmanaged.passUnretained(self).toOpaque()
+        // Register event handler for hot key events
+        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
 
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: eventMask,
-            callback: { (proxy, type, event, userInfo) -> Unmanaged<CGEvent>? in
-                guard let userInfo = userInfo else { return Unmanaged.passRetained(event) }
-                let manager = Unmanaged<HotkeyManager>.fromOpaque(userInfo).takeUnretainedValue()
-
-                if type == .keyDown {
-                    let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
-                    let flags = event.flags
-
-                    // Ctrl+Option+T: keyCode 17 = T
-                    let hasCtrl = flags.contains(.maskControl)
-                    let hasOption = flags.contains(.maskAlternate)
-                    let noCmd = !flags.contains(.maskCommand)
-                    let noShift = !flags.contains(.maskShift)
-
-                    if keyCode == 17 && hasCtrl && hasOption && noCmd && noShift {
-                        DispatchQueue.main.async {
-                            manager.onHotkey?()
-                        }
-                        return nil // Consume the event
-                    }
-                }
-
-                return Unmanaged.passRetained(event)
+        let status = InstallEventHandler(
+            GetApplicationEventTarget(),
+            { (_, event, _) -> OSStatus in
+                guard let manager = HotkeyManager.instance else { return OSStatus(eventNotHandledErr) }
+                manager.onHotkey?()
+                return noErr
             },
-            userInfo: userInfo
-        ) else {
-            return false
-        }
+            1,
+            &eventType,
+            nil,
+            &eventHandlerRef
+        )
 
-        eventTap = tap
-        runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, .commonModes)
-        CGEvent.tapEnable(tap: tap, enable: true)
-        return true
+        guard status == noErr else { return false }
+
+        // Register the hot key: Option+Cmd+K
+        // kVK_ANSI_K = 0x28 = 40
+        let hotKeyID = EventHotKeyID(signature: OSType(0x47475354), // "GGST"
+                                      id: 1)
+        let modifiers: UInt32 = UInt32(optionKey | cmdKey)
+
+        let regStatus = RegisterEventHotKey(
+            UInt32(kVK_ANSI_K),
+            modifiers,
+            hotKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &hotKeyRef
+        )
+
+        return regStatus == noErr
     }
 
     public func stop() {
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: false)
+        if let ref = hotKeyRef {
+            UnregisterEventHotKey(ref)
+            hotKeyRef = nil
         }
-        if let source = runLoopSource {
-            CFRunLoopRemoveSource(CFRunLoopGetCurrent(), source, .commonModes)
+        if let ref = eventHandlerRef {
+            RemoveEventHandler(ref)
+            eventHandlerRef = nil
         }
-        eventTap = nil
-        runLoopSource = nil
+        HotkeyManager.instance = nil
     }
 }

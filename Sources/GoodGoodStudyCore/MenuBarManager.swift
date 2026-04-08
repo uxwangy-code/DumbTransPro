@@ -32,7 +32,7 @@ public final class MenuBarManager {
             menu.addItem(NSMenuItem.separator())
         }
 
-        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌃+⌥+T"
+        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌥+⌘+K"
         let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
         menu.addItem(statusItem)
@@ -54,7 +54,7 @@ public final class MenuBarManager {
         }
         let success = hotkeyManager.start()
         if !success {
-            showNotification(title: "good-good-study", message: "无法注册全局快捷键，请在系统设置中授予辅助功能权限。")
+            showNotification(title: "good-good-study", message: "无法注册全局快捷键。")
         }
     }
 
