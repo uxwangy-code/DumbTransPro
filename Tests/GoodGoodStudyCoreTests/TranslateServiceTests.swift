@@ -31,6 +31,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
+@Suite(.serialized)
 struct TranslateServiceTests {
     func makeTestSession() -> URLSession {
         let config = URLSessionConfiguration.ephemeral
