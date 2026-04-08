@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GoodGoodStudy",
-    platforms: [.macOS(.v14)],
+    platforms: [.macOS(.v13)],
     targets: [
         .target(
             name: "GoodGoodStudyCore"

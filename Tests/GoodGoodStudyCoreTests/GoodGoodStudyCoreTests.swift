@@ -1,7 +1,4 @@
 import Testing
 @testable import GoodGoodStudyCore
 
-@Suite("GoodGoodStudyCore Tests")
-struct GoodGoodStudyCoreTests {
-    // Placeholder — real tests added in Task 2
-}
+// Placeholder — real tests in specific test files

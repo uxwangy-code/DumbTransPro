@@ -37,5 +37,4 @@ struct TextFormatterTests {
     @Test func chinesePassthrough() {
         #expect(TextFormatter.toKebabCase("good good study") == "good-good-study")
     }
-
 }
