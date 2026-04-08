@@ -26,13 +26,13 @@ public final class HotkeyManager {
                     let keyCode = event.getIntegerValueField(.keyboardEventKeycode)
                     let flags = event.flags
 
-                    // Cmd+Shift+T: keyCode 17 = T
-                    let hasCmd = flags.contains(.maskCommand)
-                    let hasShift = flags.contains(.maskShift)
-                    let noOption = !flags.contains(.maskAlternate)
-                    let noCtrl = !flags.contains(.maskControl)
+                    // Ctrl+Option+T: keyCode 17 = T
+                    let hasCtrl = flags.contains(.maskControl)
+                    let hasOption = flags.contains(.maskAlternate)
+                    let noCmd = !flags.contains(.maskCommand)
+                    let noShift = !flags.contains(.maskShift)
 
-                    if keyCode == 17 && hasCmd && hasShift && noOption && noCtrl {
+                    if keyCode == 17 && hasCtrl && hasOption && noCmd && noShift {
                         DispatchQueue.main.async {
                             manager.onHotkey?()
                         }

@@ -18,4 +18,7 @@ mkdir -p "$MACOS_DIR"
 cp "$BUILD_DIR/GoodGoodStudy" "$MACOS_DIR/"
 cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/"
 
+echo "Signing..."
+codesign --force --sign - "$APP_DIR"
+
 echo "Done: $APP_DIR"

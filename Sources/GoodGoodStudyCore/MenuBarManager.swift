@@ -32,7 +32,7 @@ public final class MenuBarManager {
             menu.addItem(NSMenuItem.separator())
         }
 
-        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌘+Shift+T"
+        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌃+⌥+T"
         let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
         menu.addItem(statusItem)
