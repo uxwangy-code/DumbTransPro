@@ -13,28 +13,66 @@ public struct SettingsView: View {
             Text("good-good-study 设置")
                 .font(.headline)
 
+            // Provider picker
             VStack(alignment: .leading, spacing: 8) {
-                Text("OpenAI API Key")
+                Text("AI 服务商")
                     .font(.subheadline)
-                SecureField("sk-...", text: $store.apiKey)
+                Picker("", selection: $store.provider) {
+                    ForEach(AIProvider.allCases, id: \.self) { provider in
+                        Text(provider.rawValue).tag(provider)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+            }
+
+            // API Key
+            VStack(alignment: .leading, spacing: 8) {
+                Text("API Key")
+                    .font(.subheadline)
+                SecureField("输入 API Key...", text: $store.apiKey)
                     .textFieldStyle(.roundedBorder)
-                    .frame(width: 320)
+                    .frame(width: 400)
+            }
+
+            // Custom provider fields
+            if store.provider == .custom {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("API Base URL")
+                        .font(.subheadline)
+                    TextField("https://api.example.com/v1", text: $store.customBaseURL)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 400)
+                    Text("Model Name")
+                        .font(.subheadline)
+                    TextField("model-name", text: $store.customModel)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 400)
+                }
+            } else {
+                // Show current endpoint info
+                Text("Endpoint: \(store.baseURL)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Text("Model: \(store.model)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             HStack {
                 Spacer()
                 Button("取消") {
-                    store.loadAPIKey()
+                    store.loadSettings()
                     dismiss()
                 }
                 Button("保存") {
-                    store.saveAPIKey()
+                    store.saveSettings()
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)
             }
         }
         .padding(20)
-        .frame(width: 400)
+        .frame(width: 480)
     }
 }

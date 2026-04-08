@@ -84,7 +84,7 @@ public final class MenuBarManager {
             }
 
             // Translate
-            let service = TranslateService(apiKey: settingsStore.apiKey)
+            let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
             do {
                 let result = try await service.translate(selectedText)
                 await ClipboardManager.pasteText(result)
@@ -103,7 +103,7 @@ public final class MenuBarManager {
 
         let view = SettingsView(store: settingsStore)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 400, height: 200),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 320),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false

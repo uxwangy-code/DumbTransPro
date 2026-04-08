@@ -18,15 +18,19 @@ public enum TranslateError: Error, LocalizedError {
 
 public final class TranslateService: Sendable {
     private let apiKey: String
+    private let baseURL: String
+    private let model: String
     private let session: URLSession
 
-    public init(apiKey: String, session: URLSession = .shared) {
+    public init(apiKey: String, baseURL: String = "https://api.openai.com/v1", model: String = "gpt-4o-mini", session: URLSession = .shared) {
         self.apiKey = apiKey
+        self.baseURL = baseURL
+        self.model = model
         self.session = session
     }
 
     public func translate(_ text: String) async throws -> String {
-        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
+        let url = URL(string: "\(baseURL)/chat/completions")!
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
@@ -38,7 +42,7 @@ public final class TranslateService: Sendable {
         """
 
         let body: [String: Any] = [
-            "model": "gpt-4o-mini",
+            "model": model,
             "messages": [
                 ["role": "user", "content": prompt]
             ],
