@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "GoodGoodStudy",
-    platforms: [.macOS(.v13)],
+    platforms: [.macOS(.v14)],
     targets: [
         .target(
             name: "GoodGoodStudyCore"
@@ -14,7 +14,22 @@ let package = Package(
         ),
         .testTarget(
             name: "GoodGoodStudyCoreTests",
-            dependencies: ["GoodGoodStudyCore"]
+            dependencies: ["GoodGoodStudyCore"],
+            swiftSettings: [
+                .unsafeFlags([
+                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                ]),
+            ],
+            linkerSettings: [
+                .unsafeFlags([
+                    "-F", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                    "-framework", "Testing",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/Frameworks",
+                    "-Xlinker", "-rpath",
+                    "-Xlinker", "/Library/Developer/CommandLineTools/Library/Developer/usr/lib",
+                ]),
+            ]
         ),
     ]
 )
