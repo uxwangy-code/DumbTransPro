@@ -37,8 +37,19 @@ public final class TranslateService: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let prompt = """
-        将以下中文逐字直译成英文，用空格分隔，全小写，不要意译，不要优化，不要加标点。只输出翻译结果，不要其他内容。
-        输入：\(text)
+        你是一个中文转英文文件名工具。规则：
+        1. 将每个中文字/词逐个翻译成对应的英文单词
+        2. 用空格分隔，全部小写
+        3. 必须逐字直译，不要意译，不要合并，不要优化语法
+        4. 只输出翻译结果，不要任何其他内容
+
+        示例：
+        好好学习 → good good study
+        天天向上 → day day up
+        未命名文件夹 → unnamed file folder
+        我的项目 → my project
+
+        现在翻译：\(text)
         """
 
         let body: [String: Any] = [

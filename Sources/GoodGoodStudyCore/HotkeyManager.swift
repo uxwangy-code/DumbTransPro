@@ -35,15 +35,16 @@ public final class HotkeyManager {
             return false
         }
 
-        // Register hotkey: F6 (no modifiers needed, simple and conflict-free)
+        // Register hotkey: ⌘+Shift+T
         let hotKeyID = EventHotKeyID(
             signature: OSType(0x47475354), // "GGST"
             id: 1
         )
 
+        let modifiers = UInt32(cmdKey | shiftKey)
         let regStatus = RegisterEventHotKey(
-            UInt32(kVK_F6),
-            0, // No modifiers — just F6
+            UInt32(kVK_ANSI_T),
+            modifiers,
             hotKeyID,
             GetApplicationEventTarget(),
             0,
@@ -55,7 +56,7 @@ public final class HotkeyManager {
             return false
         }
 
-        debugLog("Hotkey F6 registered successfully")
+        debugLog("Hotkey Cmd+Shift+T registered successfully")
         return true
     }
 
