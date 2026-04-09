@@ -124,11 +124,13 @@ public final class MenuBarManager {
     }
 
     private func showNotification(title: String, message: String) {
-        let alert = NSAlert()
-        alert.messageText = title
-        alert.informativeText = message
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
+        // Flash the menu bar title briefly to show feedback without stealing focus
+        let original = statusItem?.button?.title ?? "好"
+        statusItem?.button?.title = "✗"
+        fputs("[GGS] \(title): \(message)\n", stderr)
+        Task { @MainActor in
+            try? await Task.sleep(for: .seconds(2))
+            statusItem?.button?.title = original
+        }
     }
 }

@@ -5,16 +5,19 @@ import Carbon.HIToolbox
 public enum ClipboardManager {
     /// Read currently selected text by simulating Cmd+C, waiting, then reading pasteboard.
     public static func getSelectedText() async -> String? {
+        // Wait for user to release modifier keys from the hotkey combo
+        try? await Task.sleep(for: .milliseconds(300))
+
         // Save current pasteboard contents
         let pasteboard = NSPasteboard.general
         let oldContents = pasteboard.string(forType: .string)
         let oldChangeCount = pasteboard.changeCount
 
-        // Simulate Cmd+C
-        simulateKeyPress(keyCode: UInt16(kVK_ANSI_C), flags: .maskCommand)
+        // Simulate Cmd+C using a fresh event source that ignores physical key state
+        simulateCopy()
 
-        // Wait for pasteboard to update
-        try? await Task.sleep(for: .milliseconds(100))
+        // Wait for pasteboard to update (Finder can be slow)
+        try? await Task.sleep(for: .milliseconds(200))
 
         let newText: String?
         if pasteboard.changeCount != oldChangeCount {
@@ -39,23 +42,42 @@ public enum ClipboardManager {
         pasteboard.setString(text, forType: .string)
 
         // Small delay to ensure pasteboard is ready
-        try? await Task.sleep(for: .milliseconds(50))
+        try? await Task.sleep(for: .milliseconds(100))
 
-        simulateKeyPress(keyCode: UInt16(kVK_ANSI_V), flags: .maskCommand)
+        simulatePaste()
     }
 
-    private static func simulateKeyPress(keyCode: UInt16, flags: CGEventFlags) {
-        let source = CGEventSource(stateID: .hidSystemState)
+    private static func simulateCopy() {
+        // Use .combinedSessionState to create events independent of physical key state
+        let source = CGEventSource(stateID: .combinedSessionState)
+        source?.localEventsSuppressionInterval = 0.0
 
-        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: true),
-              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: keyCode, keyDown: false) else {
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_C), keyDown: false) else {
             return
         }
 
-        keyDown.flags = flags
-        keyUp.flags = flags
+        // Explicitly set ONLY Cmd flag — override any physical key state
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
 
-        keyDown.post(tap: .cghidEventTap)
-        keyUp.post(tap: .cghidEventTap)
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
+    }
+
+    private static func simulatePaste() {
+        let source = CGEventSource(stateID: .combinedSessionState)
+        source?.localEventsSuppressionInterval = 0.0
+
+        guard let keyDown = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_V), keyDown: true),
+              let keyUp = CGEvent(keyboardEventSource: source, virtualKey: UInt16(kVK_ANSI_V), keyDown: false) else {
+            return
+        }
+
+        keyDown.flags = .maskCommand
+        keyUp.flags = .maskCommand
+
+        keyDown.post(tap: .cgAnnotatedSessionEventTap)
+        keyUp.post(tap: .cgAnnotatedSessionEventTap)
     }
 }
