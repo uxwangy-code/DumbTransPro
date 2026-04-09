@@ -5,50 +5,58 @@ import Carbon.HIToolbox
 public final class HotkeyManager {
     public var onHotkey: (@MainActor () -> Void)?
     private var hotKeyRef: EventHotKeyRef?
-    private var eventHandlerRef: EventHandlerRef?
 
-    // Store a global reference for the C callback
-    private static var instance: HotkeyManager?
+    // Global reference for the C callback
+    nonisolated(unsafe) private static var instance: HotkeyManager?
 
     public init() {}
 
     public func start() -> Bool {
         HotkeyManager.instance = self
 
-        // Register event handler for hot key events
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        // Install Carbon event handler for hotkey events
+        var eventType = EventTypeSpec(
+            eventClass: OSType(kEventClassKeyboard),
+            eventKind: UInt32(kEventHotKeyPressed)
+        )
 
-        let status = InstallEventHandler(
+        var handlerRef: EventHandlerRef?
+        let installStatus = InstallEventHandler(
             GetApplicationEventTarget(),
-            { (_, event, _) -> OSStatus in
-                guard let manager = HotkeyManager.instance else { return OSStatus(eventNotHandledErr) }
-                manager.onHotkey?()
-                return noErr
-            },
+            hotKeyHandler,
             1,
             &eventType,
             nil,
-            &eventHandlerRef
+            &handlerRef
         )
 
-        guard status == noErr else { return false }
+        if installStatus != noErr {
+            debugLog("Failed to install event handler: \(installStatus)")
+            return false
+        }
 
-        // Register the hot key: Option+Cmd+K
-        // kVK_ANSI_K = 0x28 = 40
-        let hotKeyID = EventHotKeyID(signature: OSType(0x47475354), // "GGST"
-                                      id: 1)
-        let modifiers: UInt32 = UInt32(optionKey | cmdKey)
+        // Register hotkey: F6 (no modifiers needed, simple and conflict-free)
+        let hotKeyID = EventHotKeyID(
+            signature: OSType(0x47475354), // "GGST"
+            id: 1
+        )
 
         let regStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_K),
-            modifiers,
+            UInt32(kVK_F6),
+            0, // No modifiers — just F6
             hotKeyID,
             GetApplicationEventTarget(),
             0,
             &hotKeyRef
         )
 
-        return regStatus == noErr
+        if regStatus != noErr {
+            debugLog("Failed to register hotkey: \(regStatus)")
+            return false
+        }
+
+        debugLog("Hotkey F6 registered successfully")
+        return true
     }
 
     public func stop() {
@@ -56,10 +64,29 @@ public final class HotkeyManager {
             UnregisterEventHotKey(ref)
             hotKeyRef = nil
         }
-        if let ref = eventHandlerRef {
-            RemoveEventHandler(ref)
-            eventHandlerRef = nil
-        }
         HotkeyManager.instance = nil
     }
+
+    // Called from the C callback
+    nonisolated fileprivate static func handleHotKeyEvent() {
+        debugLog("Hotkey triggered!")
+        DispatchQueue.main.async {
+            instance?.onHotkey?()
+        }
+    }
+}
+
+// Debug logging to file
+private func debugLog(_ message: String) {
+    fputs("[GGS] \(message)\n", stderr)
+}
+
+// C-compatible callback function (no captures)
+private func hotKeyHandler(
+    _ nextHandler: EventHandlerCallRef?,
+    _ event: EventRef?,
+    _ userData: UnsafeMutableRawPointer?
+) -> OSStatus {
+    HotkeyManager.handleHotKeyEvent()
+    return noErr
 }

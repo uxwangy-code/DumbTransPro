@@ -10,8 +10,14 @@ public final class MenuBarManager {
     private var isTranslating = false
 
     public init() {
+        writeDebug("MenuBarManager init started")
         setupStatusItem()
         setupHotkey()
+        writeDebug("MenuBarManager init complete")
+    }
+
+    private func writeDebug(_ msg: String) {
+        fputs("[GGS] \(msg)\n", stderr)
     }
 
     private func setupStatusItem() {
@@ -32,7 +38,7 @@ public final class MenuBarManager {
             menu.addItem(NSMenuItem.separator())
         }
 
-        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌥+⌘+K"
+        let statusTitle = isTranslating ? "翻译中..." : "快捷键: F6"
         let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
         statusItem.isEnabled = false
         menu.addItem(statusItem)
