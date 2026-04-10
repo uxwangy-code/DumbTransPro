@@ -1,4 +1,4 @@
 import Testing
-@testable import GoodGoodStudyCore
+@testable import DumbTransProCore
 
 // Placeholder — real tests in specific test files

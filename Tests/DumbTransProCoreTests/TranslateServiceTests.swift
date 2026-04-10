@@ -1,6 +1,6 @@
 import Testing
 import Foundation
-@testable import GoodGoodStudyCore
+@testable import DumbTransProCore
 
 final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var mockResponseData: Data?

@@ -60,14 +60,14 @@ public final class MenuBarManager {
         }
         let success = hotkeyManager.start()
         if !success {
-            showNotification(title: "good-good-study", message: "无法注册全局快捷键。")
+            showNotification(title: "瞎翻 Pro", message: "无法注册全局快捷键。")
         }
     }
 
     private func handleHotkey() {
         guard !isTranslating else { return }
         guard settingsStore.hasAPIKey else {
-            showNotification(title: "good-good-study", message: "请先在设置中配置 API Key")
+            showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
             return
         }
 
@@ -80,21 +80,30 @@ public final class MenuBarManager {
                 isTranslating = false
                 statusItem?.button?.title = "好"
                 updateMenu()
+                writeDebug("handleHotkey complete")
             }
 
             // Get selected text
+            writeDebug("Getting selected text...")
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                showNotification(title: "good-good-study", message: "未选中任何文字")
+                writeDebug("No text selected")
+                showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
                 return
             }
+            writeDebug("Selected text: \(selectedText)")
 
             // Translate
+            writeDebug("Calling translate API...")
             let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
             do {
                 let result = try await service.translate(selectedText)
+                writeDebug("Translation result: \(result)")
+                writeDebug("Pasting result...")
                 await ClipboardManager.pasteText(result)
+                writeDebug("Paste complete")
             } catch {
+                writeDebug("Translation error: \(error)")
                 showNotification(title: "翻译失败", message: error.localizedDescription)
             }
         }
@@ -114,7 +123,7 @@ public final class MenuBarManager {
             backing: .buffered,
             defer: false
         )
-        window.title = "good-good-study 设置"
+        window.title = "瞎翻 Pro 设置"
         window.contentView = NSHostingView(rootView: view)
         window.center()
         window.makeKeyAndOrderFront(nil)

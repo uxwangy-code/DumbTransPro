@@ -31,7 +31,7 @@ public final class TranslateService: Sendable {
 
     public func translate(_ text: String) async throws -> String {
         let url = URL(string: "\(baseURL)/chat/completions")!
-        var request = URLRequest(url: url)
+        var request = URLRequest(url: url, timeoutInterval: 15)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

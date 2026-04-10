@@ -10,7 +10,7 @@ public struct SettingsView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Text("good-good-study 设置")
+            Text("瞎翻 Pro 设置")
                 .font(.headline)
 
             // Provider picker

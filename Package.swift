@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "GoodGoodStudy",
+    name: "DumbTransPro",
     platforms: [.macOS(.v13)],
     targets: [
         .target(
-            name: "GoodGoodStudyCore"
+            name: "DumbTransProCore"
         ),
         .executableTarget(
-            name: "GoodGoodStudy",
-            dependencies: ["GoodGoodStudyCore"]
+            name: "DumbTransPro",
+            dependencies: ["DumbTransProCore"]
         ),
         .testTarget(
-            name: "GoodGoodStudyCoreTests",
-            dependencies: ["GoodGoodStudyCore"]
+            name: "DumbTransProCoreTests",
+            dependencies: ["DumbTransProCore"]
         ),
     ]
 )

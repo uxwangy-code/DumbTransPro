@@ -1,5 +1,5 @@
 import AppKit
-import GoodGoodStudyCore
+import DumbTransProCore
 
 class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuBarManager: MenuBarManager?

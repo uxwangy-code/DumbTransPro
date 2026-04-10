@@ -1,5 +1,5 @@
 import Testing
-@testable import GoodGoodStudyCore
+@testable import DumbTransProCore
 
 struct TextFormatterTests {
     @Test func basicKebabCase() {

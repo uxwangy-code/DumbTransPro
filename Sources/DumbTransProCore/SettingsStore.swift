@@ -1,6 +1,6 @@
 import Foundation
 
-private let keychainService = "com.whimsycode.good-good-study"
+private let keychainService = "com.whimsycode.dumbtrans-pro"
 private let keychainAccount = "api-key"
 
 public enum AIProvider: String, CaseIterable, Sendable {

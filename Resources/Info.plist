@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>GoodGoodStudy</string>
+    <string>DumbTransPro</string>
+    <key>CFBundleDisplayName</key>
+    <string>瞎翻 Pro</string>
     <key>CFBundleIdentifier</key>
-    <string>com.whimsycode.good-good-study</string>
+    <string>com.whimsycode.dumbtrans-pro</string>
     <key>CFBundleVersion</key>
     <string>1.0</string>
     <key>CFBundleShortVersionString</key>
@@ -13,7 +15,7 @@
     <key>LSUIElement</key>
     <true/>
     <key>CFBundleExecutable</key>
-    <string>GoodGoodStudy</string>
+    <string>DumbTransPro</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
 </dict>

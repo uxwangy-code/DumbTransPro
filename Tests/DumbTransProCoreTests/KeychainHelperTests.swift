@@ -1,10 +1,10 @@
 import Foundation
 import Testing
-@testable import GoodGoodStudyCore
+@testable import DumbTransProCore
 
 @Suite(.serialized)
 struct KeychainHelperTests {
-    private let testService = "com.whimsycode.good-good-study.test"
+    private let testService = "com.whimsycode.dumbtrans-pro.test"
     private let testAccount = "api-key-test"
 
     @Test func saveAndRetrieve() throws {
