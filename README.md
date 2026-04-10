@@ -1,138 +1,123 @@
-# DumbTrans Pro 瞎翻 Pro
+# 瞎翻 Pro · DumbTrans Pro
 
-> 一个 macOS 菜单栏小工具：输入中文，按快捷键，自动生成连字符英文文件名。
-> 专为起不好英文名的 coding 人设计。
-
-**例子**：`好好学习` → `⌘+Shift+T` → `good-good-study`
-
----
-
-## 项目背景
-
-起项目文件夹名是件麻烦事：想用英文显得专业，但英文不好就得打开 Google 翻译，翻完复制粘贴，还老记不住。这个工具解决的就是这个问题：**在任何输入框，选中中文，按快捷键，直接替换成英文文件名格式**。
-
-"瞎翻"风格（好好学习 → good-good-study，天天向上 → day-day-up）是有意为之——有个性，有趣，符合 vibe coding 精神。所以叫 **DumbTrans Pro**：翻得又硬又 Pro。
-
----
-
-## MVP 方案：方案 B（快捷键 + 剪贴板）
-
-### 工作流程
+> 选中中文，按一下快捷键，立刻变成 kebab-case 英文文件名。
+> 专治"想起个英文项目名但憋不出来"。
 
 ```
-用户输入中文名称（如"好好学习"）
-    ↓ 选中文字
-    ↓ 按 ⌘+Shift+T
-    ↓ 工具调用 AI 接口翻译
-    ↓ 结果格式化为 kebab-case（连字符小写）
-    ↓ 自动粘贴回输入框，替换选中文字
+好好学习   →  ⌃⌥⌘T  →  good-good-study
+天天向上   →  ⌃⌥⌘T  →  day-day-up
+未命名文件夹 →  ⌃⌥⌘T  →  unnamed-file-folder
 ```
 
-### 为什么选方案 B
-
-- 开发周期短（2-3天 vs 方案A的1-2周）
-- 不依赖 Accessibility API 深度 hook，稳定性更好
-- 先验证"瞎翻体验"是否真的爽，再决定要不要做丝滑版（方案 A）
+一个常驻 macOS 菜单栏的小工具。不抢焦点、不占 Dock，任何输入框都能用。
 
 ---
 
-## 功能规格（MVP）
+## 为什么做这个
 
-### 核心功能
-- [x] 菜单栏常驻图标（不占 Dock）
-- [x] 全局快捷键（默认 `⌘+Shift+T`）
-- [x] 选中文字 → 调用 AI → 返回 kebab-case 英文
-- [x] 自动替换剪贴板并模拟粘贴
+起项目名这件事，挡住了太多次"就写两行玩一下"的冲动：
 
-### 翻译风格
-- **默认：瞎翻模式**（逐字直译，好好学习 → good-good-study）
-- 少样本 Prompt：
-  ```
-  好好学习 → good good study
-  天天向上 → day day up
-  未命名文件夹 → unnamed file folder
-  ```
+- 打开浏览器 → 开翻译 → 复制中文 → 粘贴 → 复制结果 → 切回 Finder → 粘贴 → 再把空格改成 `-`
+- 或者干脆随便敲个 `test2`、`new_project_final_v3`，三个月后自己都找不到
 
-### 支持的 AI 服务商
-| 服务商 | 备注 |
-|------|------|
-| OpenAI | gpt-4o-mini |
-| 智谱 GLM | glm-4-flash |
-| DeepSeek | deepseek-chat |
-| 月之暗面 | moonshot-v1-8k |
-| 自定义 | 任意 OpenAI 兼容 API |
-
-### 非功能需求
-- 响应时间 < 1 秒（用户感知流畅）
-- API Key 本地存储（Keychain）
+这个工具把那套流程压缩成一个快捷键。翻译风格刻意保留"瞎翻"的直译感（好好学习 = good-good-study），一方面省事，另一方面——更有 vibe。
 
 ---
 
-## 技术栈
+## 功能
 
-| 层 | 技术 | 理由 |
-|----|------|------|
-| 语言 | Swift 6 | macOS 原生，菜单栏 app 最合适 |
-| UI | SwiftUI + NSStatusItem | 菜单栏图标标准做法 |
-| 快捷键监听 | Carbon RegisterEventHotKey | 免辅助功能权限 |
-| 剪贴板操作 | NSPasteboard + CGEvent | 读剪贴板 + 模拟 ⌘C/⌘V |
-| AI 调用 | URLSession + OpenAI 兼容 API | 轻量，无需第三方 SDK |
-| 配置存储 | UserDefaults + Keychain | API Key 用 Keychain |
+- 🎯 **全局快捷键** `⌃⌥⌘T`（Control + Option + Command + T），任何 app 的任何输入框都能用
+- ✂️ **自动流程**：读取选中文字 → 调 AI 翻译 → 格式化为 kebab-case → 自动粘贴回去
+- 🍱 **多家 AI 服务商**：OpenAI、智谱 GLM、DeepSeek、月之暗面，以及任意 OpenAI 兼容 endpoint
+- 🔐 **API Key 存 Keychain**，不落盘在任何明文配置里
+- 👻 **纯菜单栏常驻**，不占 Dock 格子
+- ⚡ **原生 Swift**，冷启动快，内存占用低
 
 ---
 
-## 项目结构
+## 安装
 
-```
-dumbtrans-pro/
-├── README.md
-├── Package.swift              ← SPM 配置
-├── Sources/
-│   ├── DumbTransPro/          ← 可执行入口
-│   │   └── main.swift
-│   └── DumbTransProCore/      ← 核心库（可测）
-│       ├── MenuBarManager.swift
-│       ├── HotkeyManager.swift
-│       ├── ClipboardManager.swift
-│       ├── TranslateService.swift
-│       ├── TextFormatter.swift
-│       ├── KeychainHelper.swift
-│       ├── SettingsStore.swift
-│       └── SettingsView.swift
-├── Tests/
-│   └── DumbTransProCoreTests/
-├── Resources/
-│   └── Info.plist
-└── scripts/
-    └── bundle.sh              ← 打包 .app
-```
-
----
-
-## 构建与运行
+目前需要从源码构建（后续会提供 Release 里的预编译 `.app`）：
 
 ```bash
-# 构建并打包为 .app
+git clone https://github.com/uxwangy-code/DumbTransPro.git
+cd DumbTransPro
 ./scripts/bundle.sh
-
-# 从终端启动（可看调试日志）
-./build/DumbTransPro.app/Contents/MacOS/DumbTransPro
-
-# 或双击启动
-open ./build/DumbTransPro.app
+open build/DumbTransPro.app
 ```
 
-首次运行需在 **系统设置 → 隐私与安全性 → 辅助功能** 中授权，以便模拟 ⌘C/⌘V。
+依赖：macOS 13+、Xcode Command Line Tools（`xcode-select --install`）。
+
+### 首次启动授权
+
+因为要模拟 `⌘C`/`⌘V` 把结果贴回原输入框，需要授予辅助功能权限：
+
+1. 第一次按快捷键时 macOS 会弹窗，点 **打开系统设置**
+2. 进入 **隐私与安全性 → 辅助功能**
+3. 开启 `DumbTransPro` 的开关
+
+如果没弹窗，就手动去同样的路径，点 `+` 添加 `build/DumbTransPro.app`。
 
 ---
 
-## 后续迭代方向（方案 A 丝滑版）
+## 配置
 
-- 监听 Finder 重命名输入框激活事件（Accessibility API）
-- 输入中文后按 Tab 自动触发，无需选中
-- 支持多种输出格式（kebab-case / camelCase / PascalCase）
-- 本地词典 fallback（离线可用，覆盖高频词）
+点击菜单栏的 `好` 图标 → **设置**，填入 API Key：
+
+| 服务商 | 默认模型 | 申请地址 |
+|--------|---------|---------|
+| 智谱 GLM | `glm-4-flash`（免费额度够用） | https://open.bigmodel.cn |
+| OpenAI | `gpt-4o-mini` | https://platform.openai.com |
+| DeepSeek | `deepseek-chat` | https://platform.deepseek.com |
+| 月之暗面 | `moonshot-v1-8k` | https://platform.moonshot.cn |
+| 自定义 | 任意 OpenAI 兼容 API | — |
+
+> 推荐新手从 **智谱 GLM** 开始，注册即送额度，`glm-4-flash` 本身也是免费的。
 
 ---
 
-*项目隶属 WhimsyCode 平台，启动日期：2026-04-07*
+## 使用
+
+在 **任何** 输入框里（Finder 重命名、编辑器、浏览器地址栏、终端……）：
+
+1. 选中中文
+2. 按 `⌃⌥⌘T`
+3. 等菜单栏图标从 `好` 变成 `⏳` 再变回 `好`（一般 500ms 内）
+4. 选中的中文就被替换成了 kebab-case 英文
+
+就这样。
+
+---
+
+## 从源码构建
+
+```bash
+# 运行测试
+swift test
+
+# 开发期直接跑二进制（日志打到 stderr）
+swift run DumbTransPro
+
+# 构建可分发的 .app bundle
+./scripts/bundle.sh
+```
+
+技术栈：Swift 6 · SwiftUI · Carbon RegisterEventHotKey · NSPasteboard + CGEvent · URLSession。没有任何第三方依赖，`Package.swift` 清清爽爽。
+
+---
+
+## Roadmap
+
+- [ ] GitHub Releases 提供签名好的 `.app` 下载，免去源码构建
+- [ ] 支持更多输出格式：`camelCase` / `PascalCase` / `snake_case`
+- [ ] 可自定义快捷键
+- [ ] 可自定义翻译 Prompt / 少样本示例
+- [ ] 历史记录 + 一键复用
+
+欢迎开 issue 提想法。
+
+---
+
+## License
+
+[MIT](./LICENSE) © 2026 Thirty
