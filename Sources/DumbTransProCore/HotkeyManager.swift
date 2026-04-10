@@ -3,8 +3,8 @@ import Carbon.HIToolbox
 
 @MainActor
 public final class HotkeyManager {
-    public var onHotkey: (@MainActor () -> Void)?
-    private var hotKeyRef: EventHotKeyRef?
+    public var onHotkey: (@MainActor (TranslationMode) -> Void)?
+    private var hotKeyRefs: [EventHotKeyRef] = []
 
     // Global reference for the C callback
     nonisolated(unsafe) private static var instance: HotkeyManager?
@@ -35,59 +35,77 @@ public final class HotkeyManager {
             return false
         }
 
-        // Register hotkey: ⌘+Shift+T
-        let hotKeyID = EventHotKeyID(
-            signature: OSType(0x47475354), // "GGST"
-            id: 1
-        )
+        let modifiers = UInt32(controlKey | optionKey | cmdKey)
+        let signature = OSType(0x44545052) // "DTPR"
 
-        let modifiers = UInt32(cmdKey | shiftKey)
-        let regStatus = RegisterEventHotKey(
-            UInt32(kVK_ANSI_T),
-            modifiers,
-            hotKeyID,
-            GetApplicationEventTarget(),
-            0,
-            &hotKeyRef
-        )
-
-        if regStatus != noErr {
-            debugLog("Failed to register hotkey: \(regStatus)")
-            return false
+        for mode in TranslationMode.allCases {
+            let hotKeyID = EventHotKeyID(signature: signature, id: mode.hotkeyID)
+            var ref: EventHotKeyRef?
+            let status = RegisterEventHotKey(
+                mode.keyCode,
+                modifiers,
+                hotKeyID,
+                GetApplicationEventTarget(),
+                0,
+                &ref
+            )
+            if status != noErr {
+                debugLog("Failed to register hotkey \(mode.hotkeyLabel): \(status)")
+                continue
+            }
+            if let ref = ref {
+                hotKeyRefs.append(ref)
+            }
+            debugLog("Hotkey \(mode.hotkeyLabel) (\(mode.rawValue)) registered")
         }
 
-        debugLog("Hotkey Cmd+Shift+T registered successfully")
-        return true
+        return !hotKeyRefs.isEmpty
     }
 
     public func stop() {
-        if let ref = hotKeyRef {
+        for ref in hotKeyRefs {
             UnregisterEventHotKey(ref)
-            hotKeyRef = nil
         }
+        hotKeyRefs.removeAll()
         HotkeyManager.instance = nil
     }
 
     // Called from the C callback
-    nonisolated fileprivate static func handleHotKeyEvent() {
-        debugLog("Hotkey triggered!")
+    nonisolated fileprivate static func handleHotKeyEvent(id: UInt32) {
+        guard let mode = TranslationMode.from(hotkeyID: id) else {
+            debugLog("Unknown hotkey id: \(id)")
+            return
+        }
+        debugLog("Hotkey triggered: \(mode.rawValue) (\(mode.hotkeyLabel))")
         DispatchQueue.main.async {
-            instance?.onHotkey?()
+            instance?.onHotkey?(mode)
         }
     }
 }
 
-// Debug logging to file
+// Debug logging to stderr
 private func debugLog(_ message: String) {
     fputs("[GGS] \(message)\n", stderr)
 }
 
-// C-compatible callback function (no captures)
+// C-compatible callback function
 private func hotKeyHandler(
     _ nextHandler: EventHandlerCallRef?,
     _ event: EventRef?,
     _ userData: UnsafeMutableRawPointer?
 ) -> OSStatus {
-    HotkeyManager.handleHotKeyEvent()
+    var hotKeyID = EventHotKeyID()
+    let status = GetEventParameter(
+        event,
+        EventParamName(kEventParamDirectObject),
+        EventParamType(typeEventHotKeyID),
+        nil,
+        MemoryLayout<EventHotKeyID>.size,
+        nil,
+        &hotKeyID
+    )
+    if status == noErr {
+        HotkeyManager.handleHotKeyEvent(id: hotKeyID.id)
+    }
     return noErr
 }

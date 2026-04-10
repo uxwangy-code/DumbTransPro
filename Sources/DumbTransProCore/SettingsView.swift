@@ -50,13 +50,23 @@ public struct SettingsView: View {
                         .frame(width: 400)
                 }
             } else {
-                // Show current endpoint info
                 Text("Endpoint: \(store.baseURL)")
                     .font(.caption)
                     .foregroundColor(.secondary)
                 Text("Model: \(store.model)")
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
+
+            Divider()
+
+            // Translation mode toggles
+            VStack(alignment: .leading, spacing: 8) {
+                Text("翻译模式")
+                    .font(.subheadline)
+                Toggle("瞎翻  ⌃⌥⌘R — 逐字直译（good-good-study）", isOn: $store.dumbModeEnabled)
+                Toggle("正经  ⌃⌥⌘T — 自然翻译（study-hard）", isOn: $store.properModeEnabled)
+                Toggle("文学  ⌃⌥⌘Y — 高级词汇（diligent-pursuit-of-erudition）", isOn: $store.fancyModeEnabled)
             }
 
             HStack {
@@ -73,6 +83,6 @@ public struct SettingsView: View {
             }
         }
         .padding(20)
-        .frame(width: 480)
+        .frame(width: 520)
     }
 }

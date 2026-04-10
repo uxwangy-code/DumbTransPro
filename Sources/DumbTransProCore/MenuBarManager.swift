@@ -38,10 +38,23 @@ public final class MenuBarManager {
             menu.addItem(NSMenuItem.separator())
         }
 
-        let statusTitle = isTranslating ? "翻译中..." : "快捷键: ⌘+Shift+T"
-        let statusItem = NSMenuItem(title: statusTitle, action: nil, keyEquivalent: "")
-        statusItem.isEnabled = false
-        menu.addItem(statusItem)
+        if isTranslating {
+            let status = NSMenuItem(title: "翻译中...", action: nil, keyEquivalent: "")
+            status.isEnabled = false
+            menu.addItem(status)
+        } else {
+            for mode in TranslationMode.allCases {
+                let enabled = settingsStore.isModeEnabled(mode)
+                let label = "\(mode.rawValue)  \(mode.hotkeyLabel)"
+                let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+                item.isEnabled = false
+                if !enabled {
+                    item.title = "\(mode.rawValue)  \(mode.hotkeyLabel)（已关闭）"
+                }
+                menu.addItem(item)
+            }
+        }
+
         menu.addItem(NSMenuItem.separator())
 
         let settings = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
@@ -55,8 +68,8 @@ public final class MenuBarManager {
     }
 
     private func setupHotkey() {
-        hotkeyManager.onHotkey = { [weak self] in
-            self?.handleHotkey()
+        hotkeyManager.onHotkey = { [weak self] mode in
+            self?.handleHotkey(mode)
         }
         let success = hotkeyManager.start()
         if !success {
@@ -64,10 +77,14 @@ public final class MenuBarManager {
         }
     }
 
-    private func handleHotkey() {
+    private func handleHotkey(_ mode: TranslationMode) {
         guard !isTranslating else { return }
         guard settingsStore.hasAPIKey else {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
+            return
+        }
+        guard settingsStore.isModeEnabled(mode) else {
+            writeDebug("\(mode.rawValue) mode is disabled, ignoring")
             return
         }
 
@@ -80,11 +97,10 @@ public final class MenuBarManager {
                 isTranslating = false
                 statusItem?.button?.title = "好"
                 updateMenu()
-                writeDebug("handleHotkey complete")
+                writeDebug("handleHotkey complete (\(mode.rawValue))")
             }
 
-            // Get selected text
-            writeDebug("Getting selected text...")
+            writeDebug("Getting selected text... (mode: \(mode.rawValue))")
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 writeDebug("No text selected")
@@ -93,12 +109,11 @@ public final class MenuBarManager {
             }
             writeDebug("Selected text: \(selectedText)")
 
-            // Translate
-            writeDebug("Calling translate API...")
+            writeDebug("Calling translate API (\(mode.rawValue))...")
             let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
             do {
-                let result = try await service.translate(selectedText)
-                writeDebug("Translation result: \(result)")
+                let result = try await service.translate(selectedText, mode: mode)
+                writeDebug("Translation result (\(mode.rawValue)): \(result)")
                 writeDebug("Pasting result...")
                 await ClipboardManager.pasteText(result)
                 writeDebug("Paste complete")
@@ -118,7 +133,7 @@ public final class MenuBarManager {
 
         let view = SettingsView(store: settingsStore)
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 320),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -133,7 +148,6 @@ public final class MenuBarManager {
     }
 
     private func showNotification(title: String, message: String) {
-        // Flash the menu bar title briefly to show feedback without stealing focus
         let original = statusItem?.button?.title ?? "好"
         statusItem?.button?.title = "✗"
         fputs("[GGS] \(title): \(message)\n", stderr)

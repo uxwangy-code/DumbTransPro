@@ -29,28 +29,14 @@ public final class TranslateService: Sendable {
         self.session = session
     }
 
-    public func translate(_ text: String) async throws -> String {
+    public func translate(_ text: String, mode: TranslationMode = .dumb) async throws -> String {
         let url = URL(string: "\(baseURL)/chat/completions")!
         var request = URLRequest(url: url, timeoutInterval: 15)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = """
-        你是一个中文转英文文件名工具。规则：
-        1. 将每个中文字/词逐个翻译成对应的英文单词
-        2. 用空格分隔，全部小写
-        3. 必须逐字直译，不要意译，不要合并，不要优化语法
-        4. 只输出翻译结果，不要任何其他内容
-
-        示例：
-        好好学习 → good good study
-        天天向上 → day day up
-        未命名文件夹 → unnamed file folder
-        我的项目 → my project
-
-        现在翻译：\(text)
-        """
+        let prompt = "\(mode.prompt)\n\n现在翻译：\(text)"
 
         let body: [String: Any] = [
             "model": model,

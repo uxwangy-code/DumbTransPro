@@ -53,8 +53,44 @@ struct TranslateServiceTests {
         MockURLProtocol.mockStatusCode = 200
 
         let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
-        let result = try await service.translate("好好学习")
+        let result = try await service.translate("好好学习", mode: .dumb)
         #expect(result == "good-good-study")
+    }
+
+    @Test func properModeTranslation() async throws {
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "study hard"
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("好好学习", mode: .proper)
+        #expect(result == "study-hard")
+    }
+
+    @Test func fancyModeTranslation() async throws {
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "diligent pursuit of erudition"
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("好好学习", mode: .fancy)
+        #expect(result == "diligent-pursuit-of-erudition")
     }
 
     @Test func apiErrorReturnsError() async {
@@ -65,7 +101,7 @@ struct TranslateServiceTests {
 
         let service = TranslateService(apiKey: "bad-key", session: makeTestSession())
         do {
-            _ = try await service.translate("测试")
+            _ = try await service.translate("测试", mode: .dumb)
             #expect(Bool(false), "Should have thrown")
         } catch {
             #expect(error is TranslateError)
@@ -86,6 +122,25 @@ struct TranslateServiceTests {
         MockURLProtocol.mockStatusCode = 200
 
         let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("好好学习", mode: .dumb)
+        #expect(result == "good-good-study")
+    }
+
+    @Test func defaultModeIsDumb() async throws {
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "good good study"
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        // Call without mode parameter — should default to .dumb
         let result = try await service.translate("好好学习")
         #expect(result == "good-good-study")
     }
