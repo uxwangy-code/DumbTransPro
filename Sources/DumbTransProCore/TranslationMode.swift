@@ -7,9 +7,9 @@ public enum TranslationMode: String, CaseIterable, Sendable {
 
     public var hotkeyLabel: String {
         switch self {
-        case .dumb: return "⌃⌥⌘R"
-        case .proper: return "⌃⌥⌘T"
-        case .fancy: return "⌃⌥⌘Y"
+        case .dumb: return "⌘⇧R"
+        case .proper: return "⌘⇧T"
+        case .fancy: return "⌘⇧Y"
         }
     }
 

@@ -35,7 +35,7 @@ public final class HotkeyManager {
             return false
         }
 
-        let modifiers = UInt32(controlKey | optionKey | cmdKey)
+        let modifiers = UInt32(cmdKey | shiftKey)
         let signature = OSType(0x44545052) // "DTPR"
 
         for mode in TranslationMode.allCases {
