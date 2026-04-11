@@ -8,6 +8,9 @@ public final class MenuBarManager {
     private let settingsStore = SettingsStore()
     private var settingsWindow: NSWindow?
     private var isTranslating = false
+    private var spinnerTimer: Timer?
+    private let spinnerFrames: [String] = ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"]
+    private var spinnerIndex = 0
 
     public init() {
         writeDebug("MenuBarManager init started")
@@ -23,7 +26,7 @@ public final class MenuBarManager {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            button.title = "好"
+            button.title = "✦"
         }
         updateMenu()
     }
@@ -89,13 +92,13 @@ public final class MenuBarManager {
         }
 
         isTranslating = true
-        statusItem?.button?.title = "⏳"
+        startSpinner()
         updateMenu()
 
         Task { @MainActor in
             defer {
                 isTranslating = false
-                statusItem?.button?.title = "好"
+                stopSpinner()
                 updateMenu()
                 writeDebug("handleHotkey complete (\(mode.rawValue))")
             }
@@ -147,8 +150,26 @@ public final class MenuBarManager {
         settingsWindow = window
     }
 
+    private func startSpinner() {
+        spinnerIndex = 0
+        statusItem?.button?.title = spinnerFrames[0]
+        spinnerTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.spinnerIndex = (self.spinnerIndex + 1) % self.spinnerFrames.count
+                self.statusItem?.button?.title = self.spinnerFrames[self.spinnerIndex]
+            }
+        }
+    }
+
+    private func stopSpinner() {
+        spinnerTimer?.invalidate()
+        spinnerTimer = nil
+        statusItem?.button?.title = "✦"
+    }
+
     private func showNotification(title: String, message: String) {
-        let original = statusItem?.button?.title ?? "好"
+        let original = statusItem?.button?.title ?? "✦"
         statusItem?.button?.title = "✗"
         fputs("[GGS] \(title): \(message)\n", stderr)
         Task { @MainActor in

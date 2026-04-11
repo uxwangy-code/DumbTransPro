@@ -94,6 +94,7 @@ private func hotKeyHandler(
     _ event: EventRef?,
     _ userData: UnsafeMutableRawPointer?
 ) -> OSStatus {
+    fputs("[GGS] hotKeyHandler callback fired\n", stderr)
     var hotKeyID = EventHotKeyID()
     let status = GetEventParameter(
         event,
@@ -104,6 +105,7 @@ private func hotKeyHandler(
         nil,
         &hotKeyID
     )
+    fputs("[GGS] GetEventParameter status: \(status), id: \(hotKeyID.id)\n", stderr)
     if status == noErr {
         HotkeyManager.handleHotKeyEvent(id: hotKeyID.id)
     }
