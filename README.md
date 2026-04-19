@@ -4,9 +4,9 @@
 > 专治"想起个英文项目名但憋不出来"。
 
 ```
-好好学习   →  ⌃⌥⌘T  →  good-good-study
-天天向上   →  ⌃⌥⌘T  →  day-day-up
-未命名文件夹 →  ⌃⌥⌘T  →  unnamed-file-folder
+好好学习   →  ⌘⇧R  →  good-good-study        （硬翻：直译，有 vibe）
+天天向上   →  ⌘⇧T  →  make-progress-every-day  （正翻：地道英文）
+未命名文件夹 →  ⌘⇧Y  →  unnamed-folder           （简翻：极简缩写）
 ```
 
 一个常驻 macOS 菜单栏的小工具。不抢焦点、不占 Dock，任何输入框都能用。
@@ -26,7 +26,7 @@
 
 ## 功能
 
-- 🎯 **全局快捷键** `⌃⌥⌘T`（Control + Option + Command + T），任何 app 的任何输入框都能用
+- 🎯 **三种翻译模式**：硬翻（`⌘⇧R`）· 正翻（`⌘⇧T`）· 简翻（`⌘⇧Y`），任何 app 的任何输入框都能用
 - ✂️ **自动流程**：读取选中文字 → 调 AI 翻译 → 格式化为 kebab-case → 自动粘贴回去
 - 🍱 **多家 AI 服务商**：OpenAI、智谱 GLM、DeepSeek、月之暗面，以及任意 OpenAI 兼容 endpoint
 - 🔐 **API Key 存 Keychain**，不落盘在任何明文配置里
@@ -37,7 +37,13 @@
 
 ## 安装
 
-目前需要从源码构建（后续会提供 Release 里的预编译 `.app`）：
+### 直接下载（推荐）
+
+从 [GitHub Releases](https://github.com/uxwangy-code/DumbTransPro/releases/latest) 下载最新的 `.zip`，解压后将 `DumbTransPro.app` 拖到「应用程序」文件夹即可。
+
+macOS 13+ 可用。
+
+### 从源码构建
 
 ```bash
 git clone https://github.com/uxwangy-code/DumbTransPro.git
@@ -81,7 +87,7 @@ open build/DumbTransPro.app
 在 **任何** 输入框里（Finder 重命名、编辑器、浏览器地址栏、终端……）：
 
 1. 选中中文
-2. 按 `⌃⌥⌘T`
+2. 按快捷键：`⌘⇧R`（硬翻）/ `⌘⇧T`（正翻）/ `⌘⇧Y`（简翻）
 3. 等菜单栏图标从 `好` 变成 `⏳` 再变回 `好`（一般 500ms 内）
 4. 选中的中文就被替换成了 kebab-case 英文
 
@@ -108,7 +114,7 @@ swift run DumbTransPro
 
 ## Roadmap
 
-- [ ] GitHub Releases 提供签名好的 `.app` 下载，免去源码构建
+- [x] GitHub Releases 提供签名好的 `.app` 下载，免去源码构建
 - [ ] 支持更多输出格式：`camelCase` / `PascalCase` / `snake_case`
 - [ ] 可自定义快捷键
 - [ ] 可自定义翻译 Prompt / 少样本示例
