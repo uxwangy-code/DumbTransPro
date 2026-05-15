@@ -4,6 +4,7 @@ struct LookupPanelView: View {
     @ObservedObject var state: LookupPanelState
 
     private let collapseThreshold = 100
+    static let panelWidth: CGFloat = 480
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -13,7 +14,8 @@ struct LookupPanelView: View {
             translationSection
             footerBar
         }
-        .frame(width: 360)
+        .frame(width: Self.panelWidth)
+        .fixedSize(horizontal: false, vertical: true)
         .background(.regularMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 12))
     }
@@ -96,15 +98,13 @@ struct LookupPanelView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 16)
         } else {
-            ScrollView {
-                Text(state.translation)
-                    .font(.body)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 16)
-            }
-            .frame(maxHeight: 160)
+            Text(state.translation)
+                .font(.title3)
+                .lineSpacing(4)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .textSelection(.enabled)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
         }
     }
 
