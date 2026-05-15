@@ -18,6 +18,9 @@ mkdir -p "$MACOS_DIR"
 cp "$BUILD_DIR/DumbTransPro" "$MACOS_DIR/"
 cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/"
 
+mkdir -p "$CONTENTS_DIR/Resources"
+cp "$PROJECT_DIR/Resources/AppIcon.icns" "$CONTENTS_DIR/Resources/"
+
 echo "Signing..."
 codesign --force --sign - "$APP_DIR"
 
