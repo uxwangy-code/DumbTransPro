@@ -3,9 +3,21 @@ import SwiftUI
 public struct SettingsView: View {
     @ObservedObject var store: SettingsStore
     @Environment(\.dismiss) private var dismiss
+    private let onClose: (() -> Void)?
+    @State private var apiKey: String
+    @State private var provider: AIProvider
+    @State private var customBaseURL: String
+    @State private var customModel: String
+    @State private var translationStyle: TranslationStyle
 
-    public init(store: SettingsStore) {
+    public init(store: SettingsStore, onClose: (() -> Void)? = nil) {
         self.store = store
+        self.onClose = onClose
+        _apiKey = State(initialValue: store.apiKey)
+        _provider = State(initialValue: store.provider)
+        _customBaseURL = State(initialValue: store.customBaseURL)
+        _customModel = State(initialValue: store.customModel)
+        _translationStyle = State(initialValue: store.translationStyle)
     }
 
     public var body: some View {
@@ -17,7 +29,7 @@ public struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("AI 服务商")
                     .font(.subheadline)
-                Picker("", selection: $store.provider) {
+                Picker("", selection: $provider) {
                     ForEach(AIProvider.allCases, id: \.self) { provider in
                         Text(provider.rawValue).tag(provider)
                     }
@@ -30,53 +42,78 @@ public struct SettingsView: View {
             VStack(alignment: .leading, spacing: 8) {
                 Text("API Key")
                     .font(.subheadline)
-                SecureField("输入 API Key...", text: $store.apiKey)
+                SecureField("输入 API Key...", text: $apiKey)
                     .textFieldStyle(.roundedBorder)
                     .frame(width: 400)
             }
 
             // Custom provider fields
-            if store.provider == .custom {
+            if provider == .custom {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("API Base URL")
                         .font(.subheadline)
-                    TextField("https://api.example.com/v1", text: $store.customBaseURL)
+                    TextField("https://api.example.com/v1", text: $customBaseURL)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 400)
                     Text("Model Name")
                         .font(.subheadline)
-                    TextField("model-name", text: $store.customModel)
+                    TextField("model-name", text: $customModel)
                         .textFieldStyle(.roundedBorder)
                         .frame(width: 400)
                 }
             } else {
-                Text("Endpoint: \(store.baseURL)")
+                Text("Endpoint: \(provider.defaultBaseURL)")
                     .font(.caption)
                     .foregroundColor(.secondary)
-                Text("Model: \(store.model)")
+                Text("Model: \(provider.defaultModel)")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
 
             Divider()
 
-            // Translation mode toggles
             VStack(alignment: .leading, spacing: 8) {
-                Text("翻译模式")
+                Text("翻译风格")
                     .font(.subheadline)
-                Toggle("瞎翻  ⌘⇧R — 逐字直译（good-good-study）", isOn: $store.dumbModeEnabled)
-                Toggle("正经  ⌘⇧T — 自然翻译（study-hard）", isOn: $store.properModeEnabled)
-                Toggle("文学  ⌘⇧Y — 高级词汇（diligent-pursuit-of-erudition）", isOn: $store.fancyModeEnabled)
+                ForEach(TranslationStyle.allCases) { style in
+                    Button {
+                        translationStyle = style
+                    } label: {
+                        HStack(alignment: .top, spacing: 8) {
+                            Image(systemName: translationStyle == style ? "largecircle.fill.circle" : "circle")
+                                .font(.system(size: 13))
+                                .foregroundStyle(translationStyle == style ? Color.accentColor : Color.secondary)
+                                .frame(width: 16, height: 18)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(style.title)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                Text(style.description)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             HStack {
                 Spacer()
                 Button("取消") {
-                    store.loadSettings()
+                    onClose?()
                     dismiss()
                 }
                 Button("保存") {
-                    store.saveSettings()
+                    store.updateSettings(
+                        apiKey: apiKey,
+                        provider: provider,
+                        customBaseURL: customBaseURL,
+                        customModel: customModel,
+                        translationStyle: translationStyle
+                    )
+                    onClose?()
                     dismiss()
                 }
                 .buttonStyle(.borderedProminent)

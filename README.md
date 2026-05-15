@@ -3,11 +3,8 @@
 > 选中文字 + 一个快捷键 = 翻译。常驻 macOS 菜单栏的小工具，不抢焦点、不占 Dock。
 
 ```
-好好学习   →  ⌘⇧R  →  good-good-study           （硬翻：逐字直译，有 vibe）
-天天向上   →  ⌘⇧T  →  make-progress-every-day   （正翻：地道英文）
-未命名文件夹 →  ⌘⇧Y  →  unnamed-folder           （简翻：极简缩写）
-
-select any english → ⌘⇧F → 浮动面板里给出中文翻译         （划词翻译）
+好好学习       →  ⌘⇧R  →  study-hard        （中文转英文，默认自然风格）
+select english →  ⌘⇧F  →  浮动面板里给出中文翻译  （划词翻译）
 ```
 
 ---
@@ -19,7 +16,7 @@ select any english → ⌘⇧F → 浮动面板里给出中文翻译         （
 - 打开浏览器 → 开翻译 → 复制中文 → 粘贴 → 复制结果 → 切回 Finder → 粘贴 → 再把空格改成 `-`
 - 或者干脆随便敲个 `test2`、`new_project_final_v3`，三个月后自己都找不到
 
-这个工具把那套流程压缩成一个快捷键。翻译风格刻意保留"瞎翻"的直译感（好好学习 = good-good-study），一方面省事，另一方面——更有 vibe。
+这个工具把那套流程压缩成一个快捷键。翻译风格可以在设置里切换：浅白、自然、典雅，默认是最稳妥的自然风格。
 
 后来 `⌘⇧F` 划词翻译被加进来——日常看英文资料/文档时一键查中文意思，比开词典/复制到翻译网站快得多。
 
@@ -27,8 +24,9 @@ select any english → ⌘⇧F → 浮动面板里给出中文翻译         （
 
 ## 功能
 
-- 🎯 **三种 kebab 翻译模式**：硬翻（`⌘⇧R`）· 正翻（`⌘⇧T`）· 简翻（`⌘⇧Y`），任何 app 的任何输入框都能用
+- 🎯 **中文转英文**（`⌘⇧R`）：任何 app 的任何输入框都能用，结果自动整理成 kebab-case
 - 🔍 **划词翻译**（`⌘⇧F`）：选中外文，弹出浮动面板显示中文译文，自适应面板高度，原文 >100 字时自动折叠
+- 🪄 **统一翻译风格**：浅白 · 自然（默认）· 典雅，同一套风格同时作用于中文转英文和划词翻译
 - ✂️ **kebab 翻译自动流程**：读取选中文字 → 调 AI 翻译 → 格式化为 kebab-case → 自动粘贴回去
 - 🍱 **多家 AI 服务商**：OpenAI、智谱 GLM、DeepSeek、月之暗面，以及任意 OpenAI 兼容 endpoint
 - 🔐 **API Key 存 Keychain**，不落盘在任何明文配置里
@@ -55,14 +53,19 @@ cd DumbTransPro
 # （没有这一步会 fallback 到 adhoc，TCC 授权每次 rebuild 会失效）
 bash scripts/setup-signing.sh
 
-# 构建 .app
-bash scripts/bundle.sh
-open build/DumbTransPro.app
+# 构建、签名并安装到「应用程序」
+bash scripts/bundle.sh --install --launch
 ```
 
 依赖：macOS 13+ · Xcode Command Line Tools（`xcode-select --install`）· OpenSSL（macOS 自带）。
 
 > 📌 `setup-signing.sh` 会在 `~/Library/Keychains/dumbtrans-signing.keychain-db` 创建一张 10 年期的本地 self-signed 证书。这张证书**不会进 git**（私钥不能进仓库），所以**每台开发机都要跑一次**。换电脑或重装系统后再跑一次即可。
+
+`--install` 默认会把应用安装到 `/Applications/瞎翻 Pro.app`，并刷新 Launch Services，让「应用程序」文件夹、Launchpad 和 Spotlight 能找到它。如果没有 `/Applications` 写入权限，可以改装到当前用户应用目录：
+
+```bash
+DUMBTRANS_INSTALL_DIR="$HOME/Applications" bash scripts/bundle.sh --install --launch
+```
 
 ### 首次启动授权
 
@@ -73,6 +76,15 @@ open build/DumbTransPro.app
 3. 回到 app，菜单里的警告会在 2 秒内自动消失
 
 只需授权这一次。之后 rebuild 不用再操作（前提是用了 `setup-signing.sh` 的稳定签名）。
+
+如果要取消授权：点击菜单栏小鱼图标 → `辅助功能权限：已授权（点击管理/取消）`，在系统设置里关闭 `瞎翻 Pro` / `DumbTransPro` 即可。
+
+如果系统设置的辅助功能列表里看不到应用，先确认已安装到 `/Applications/瞎翻 Pro.app` 或 `~/Applications/瞎翻 Pro.app`。必要时可以重置旧授权记录后重新启动安装版：
+
+```bash
+tccutil reset Accessibility com.whimsycode.dumbtrans-pro
+open "/Applications/瞎翻 Pro.app"
+```
 
 ---
 
@@ -90,6 +102,14 @@ open build/DumbTransPro.app
 
 > 推荐新手从 **智谱 GLM** 开始，注册即送额度，`glm-4-flash` 本身也是免费的。
 
+翻译风格可在设置中切换：
+
+| 风格 | 说明 |
+|------|------|
+| 浅白 | 使用简单常见词汇，尽量直白易懂 |
+| 自然 | 默认推荐，翻译自然、准确、日常 |
+| 典雅 | 更有文采，偏高级词汇或文学表达 |
+
 ---
 
 ## 使用
@@ -99,9 +119,9 @@ open build/DumbTransPro.app
 在 **任何** 输入框里（Finder 重命名、编辑器、浏览器地址栏、终端……）：
 
 1. 选中中文
-2. 按快捷键：`⌘⇧R`（硬翻）/ `⌘⇧T`（正翻）/ `⌘⇧Y`（简翻）
+2. 按快捷键：`⌘⇧R`
 3. 等菜单栏小鱼变成 ⏳ spinner 再变回小鱼（一般 500ms 内）
-4. 选中的中文就被替换成了 kebab-case 英文
+4. 选中的中文就会按当前翻译风格替换成 kebab-case 英文
 
 ### 划词翻译（外文 → 中文）
 
@@ -109,7 +129,7 @@ open build/DumbTransPro.app
 
 1. 鼠标选中要查的句子或段落
 2. 按 `⌘⇧F`
-3. 屏幕中央弹出浮动面板，上方原文（>100 字自动折叠 + 展开按钮），下方中文译文，右下角显示当前用的模型名
+3. 屏幕中央弹出浮动面板，上方原文（>100 字自动折叠 + 展开按钮），下方按当前翻译风格显示中文译文，右下角显示当前用的模型名
 4. 点面板右上角 × 关闭
 
 ---
@@ -141,8 +161,11 @@ swift run DumbTransPro
 # 完整 build + sign + 打包 .app
 bash scripts/bundle.sh
 
-# 启动签名好的 .app
-open build/DumbTransPro.app
+# 完整 build + sign + 安装到「应用程序」
+bash scripts/bundle.sh --install
+
+# 启动安装版
+open "/Applications/瞎翻 Pro.app"
 ```
 
 ### Git workflow
@@ -167,7 +190,7 @@ Sources/
     ├── HotkeyManager.swift           # Carbon RegisterEventHotKey
     ├── ClipboardManager.swift        # ⌘C/⌘V 模拟 + 选中文字捕获
     ├── TranslateService.swift        # OpenAI 兼容 API 调用
-    ├── TranslationMode.swift         # 三种 kebab 模式 + prompt
+    ├── TranslationStyle.swift        # 翻译风格 + 快捷键动作
     ├── TextFormatter.swift           # kebab-case 格式化
     ├── SettingsStore.swift           # 配置持久化（Keychain + UserDefaults）
     ├── SettingsView.swift            # 设置面板 SwiftUI

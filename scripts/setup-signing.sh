@@ -55,7 +55,12 @@ openssl req \
     -config "${CONFIG_FILE}" -extensions v3_ext 2>/dev/null
 
 TMP_P12_PASS="dumbtrans-tmp-$$"
-openssl pkcs12 -export -legacy -macalg sha1 \
+PKCS12_EXPORT_ARGS=(-export)
+if openssl pkcs12 -help 2>&1 | grep -q -- "-legacy"; then
+    PKCS12_EXPORT_ARGS+=(-legacy)
+fi
+
+openssl pkcs12 "${PKCS12_EXPORT_ARGS[@]}" -macalg sha1 \
     -inkey "${KEY_FILE}" -in "${CERT_FILE}" \
     -out "${P12_FILE}" -passout "pass:${TMP_P12_PASS}"
 

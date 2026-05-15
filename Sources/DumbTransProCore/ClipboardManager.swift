@@ -6,7 +6,7 @@ public enum ClipboardManager {
     /// Read currently selected text by simulating Cmd+C, waiting, then reading pasteboard.
     public static func getSelectedText() async -> String? {
         // Wait for user to release modifier keys from the hotkey combo
-        try? await Task.sleep(for: .milliseconds(300))
+        try? await Task.sleep(for: .milliseconds(120))
 
         // Save current pasteboard contents
         let pasteboard = NSPasteboard.general
@@ -16,14 +16,20 @@ public enum ClipboardManager {
         // Simulate Cmd+C using a fresh event source that ignores physical key state
         simulateCopy()
 
-        // Wait for pasteboard to update (Finder can be slow)
-        try? await Task.sleep(for: .milliseconds(200))
+        var newText = await waitForCopiedText(
+            in: pasteboard,
+            oldChangeCount: oldChangeCount,
+            timeoutMilliseconds: 600
+        )
 
-        let newText: String?
-        if pasteboard.changeCount != oldChangeCount {
-            newText = pasteboard.string(forType: .string)
-        } else {
-            newText = nil
+        if newText == nil {
+            try? await Task.sleep(for: .milliseconds(120))
+            simulateCopy()
+            newText = await waitForCopiedText(
+                in: pasteboard,
+                oldChangeCount: oldChangeCount,
+                timeoutMilliseconds: 500
+            )
         }
 
         // Restore old pasteboard contents
@@ -42,9 +48,25 @@ public enum ClipboardManager {
         pasteboard.setString(text, forType: .string)
 
         // Small delay to ensure pasteboard is ready
-        try? await Task.sleep(for: .milliseconds(100))
+        try? await Task.sleep(for: .milliseconds(40))
 
         simulatePaste()
+    }
+
+    private static func waitForCopiedText(
+        in pasteboard: NSPasteboard,
+        oldChangeCount: Int,
+        timeoutMilliseconds: Int
+    ) async -> String? {
+        let intervalMilliseconds = 25
+        let attempts = max(1, timeoutMilliseconds / intervalMilliseconds)
+        for _ in 0..<attempts {
+            try? await Task.sleep(for: .milliseconds(intervalMilliseconds))
+            if pasteboard.changeCount != oldChangeCount {
+                return pasteboard.string(forType: .string)
+            }
+        }
+        return nil
     }
 
     private static func simulateCopy() {

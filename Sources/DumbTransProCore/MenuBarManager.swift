@@ -6,7 +6,7 @@ import os.log
 private let appLog = OSLog(subsystem: "com.whimsycode.dumbtrans-pro", category: "main")
 
 @MainActor
-public final class MenuBarManager {
+public final class MenuBarManager: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let hotkeyManager = HotkeyManager()
     private let settingsStore = SettingsStore()
@@ -19,11 +19,12 @@ public final class MenuBarManager {
     private var hasAccessibility = false
     private var accessibilityWatcher: Timer?
 
-    public init() {
+    public override init() {
+        super.init()
         writeDebug("MenuBarManager init started")
-        setupStatusItem()
         checkAccessibility(prompt: true)
         writeDebug("Accessibility trusted at startup: \(hasAccessibility)")
+        setupStatusItem()
         setupHotkey()
         startAccessibilityWatcher()
         writeDebug("MenuBarManager init complete")
@@ -34,10 +35,12 @@ public final class MenuBarManager {
         os_log("%{public}@", log: appLog, type: .info, msg)
     }
 
-    private func checkAccessibility(prompt: Bool) {
+    @discardableResult
+    private func checkAccessibility(prompt: Bool) -> Bool {
         let key = "AXTrustedCheckOptionPrompt" as CFString
         let options = [key: prompt] as CFDictionary
         hasAccessibility = AXIsProcessTrustedWithOptions(options)
+        return hasAccessibility
     }
 
     private func startAccessibilityWatcher() {
@@ -55,11 +58,20 @@ public final class MenuBarManager {
     }
 
     @objc private func openAccessibilitySettings() {
-        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
-            NSWorkspace.shared.open(url)
+        let settingsURLs = [
+            "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility",
+            "x-apple.systempreferences:com.apple.settings.PrivacySecurity.extension?Privacy_Accessibility",
+        ]
+
+        for urlString in settingsURLs {
+            guard let url = URL(string: urlString) else { continue }
+            if NSWorkspace.shared.open(url) {
+                break
+            }
         }
-        // Re-prompt to also surface our app in the list if it's missing
-        checkAccessibility(prompt: true)
+        // Re-prompt only when missing, so authorized users can manage or revoke
+        // the permission without seeing another authorization prompt.
+        checkAccessibility(prompt: !hasAccessibility)
     }
 
     private func setupStatusItem() {
@@ -85,6 +97,18 @@ public final class MenuBarManager {
 
     private func updateMenu() {
         let menu = NSMenu()
+        menu.delegate = self
+        populateMenu(menu)
+        self.statusItem?.menu = menu
+    }
+
+    public func menuNeedsUpdate(_ menu: NSMenu) {
+        checkAccessibility(prompt: false)
+        populateMenu(menu)
+    }
+
+    private func populateMenu(_ menu: NSMenu) {
+        menu.removeAllItems()
 
         if !hasAccessibility {
             let warning = NSMenuItem(title: "⚠ 请授权辅助功能（点击打开设置）", action: #selector(openAccessibilitySettings), keyEquivalent: "")
@@ -105,22 +129,21 @@ public final class MenuBarManager {
             status.isEnabled = false
             menu.addItem(status)
         } else {
-            for mode in TranslationMode.allCases {
-                let enabled = settingsStore.isModeEnabled(mode)
-                let label = "\(mode.rawValue)  \(mode.hotkeyLabel)"
-                let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
+            for action in TranslationAction.allCases {
+                let item = NSMenuItem(title: "\(action.title)  \(action.hotkeyLabel)", action: nil, keyEquivalent: "")
                 item.isEnabled = false
-                if !enabled {
-                    item.title = "\(mode.rawValue)  \(mode.hotkeyLabel)（已关闭）"
-                }
                 menu.addItem(item)
             }
-            let lookup = NSMenuItem(title: "划词翻译  ⌘⇧F", action: nil, keyEquivalent: "")
-            lookup.isEnabled = false
-            menu.addItem(lookup)
         }
 
         menu.addItem(NSMenuItem.separator())
+
+        let accessibilityTitle = hasAccessibility
+            ? "辅助功能权限：已授权（点击管理/取消）"
+            : "辅助功能权限：未授权（点击打开设置）"
+        let accessibility = NSMenuItem(title: accessibilityTitle, action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        accessibility.target = self
+        menu.addItem(accessibility)
 
         let settings = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
         settings.target = self
@@ -128,20 +151,24 @@ public final class MenuBarManager {
 
         let quit = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         menu.addItem(quit)
-
-        self.statusItem?.menu = menu
     }
 
     private func setupHotkey() {
-        hotkeyManager.onHotkey = { [weak self] mode in
-            self?.handleHotkey(mode)
-        }
-        hotkeyManager.onLookupHotkey = { [weak self] in
-            self?.handleLookup()
+        hotkeyManager.onAction = { [weak self] action in
+            self?.handleAction(action)
         }
         let success = hotkeyManager.start()
         if !success {
             showNotification(title: "瞎翻 Pro", message: "无法注册全局快捷键。")
+        }
+    }
+
+    private func handleAction(_ action: TranslationAction) {
+        switch action {
+        case .rewriteToEnglish:
+            handleRewriteToEnglish()
+        case .lookup:
+            handleLookup()
         }
     }
 
@@ -160,14 +187,10 @@ public final class MenuBarManager {
         }
     }
 
-    private func handleHotkey(_ mode: TranslationMode) {
+    private func handleRewriteToEnglish() {
         guard !isTranslating else { return }
         guard settingsStore.hasAPIKey else {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
-            return
-        }
-        guard settingsStore.isModeEnabled(mode) else {
-            writeDebug("\(mode.rawValue) mode is disabled, ignoring")
             return
         }
 
@@ -176,14 +199,15 @@ public final class MenuBarManager {
         updateMenu()
 
         Task { @MainActor in
+            let style = settingsStore.translationStyle
             defer {
                 isTranslating = false
                 stopSpinner()
                 updateMenu()
-                writeDebug("handleHotkey complete (\(mode.rawValue))")
+                writeDebug("handleRewriteToEnglish complete (\(style.title))")
             }
 
-            writeDebug("Getting selected text... (mode: \(mode.rawValue))")
+            writeDebug("Getting selected text... (style: \(style.title))")
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 writeDebug("No text selected")
@@ -192,11 +216,11 @@ public final class MenuBarManager {
             }
             writeDebug("Selected text: \(selectedText)")
 
-            writeDebug("Calling translate API (\(mode.rawValue))...")
+            writeDebug("Calling translate API (\(style.title))...")
             let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
             do {
-                let result = try await service.translate(selectedText, mode: mode)
-                writeDebug("Translation result (\(mode.rawValue)): \(result)")
+                let result = try await service.translate(selectedText, style: style)
+                writeDebug("Translation result (\(style.title)): \(result)")
                 writeDebug("Pasting result...")
                 await ClipboardManager.pasteText(result)
                 writeDebug("Paste complete")
@@ -208,19 +232,24 @@ public final class MenuBarManager {
     }
 
     @objc private func openSettings() {
-        if let window = settingsWindow {
+        if let window = settingsWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
         }
 
-        let view = SettingsView(store: settingsStore)
+        settingsWindow?.close()
+        settingsWindow = nil
+
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 420),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 500),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
+        let view = SettingsView(store: settingsStore) { [weak window] in
+            window?.close()
+        }
         window.title = "瞎翻 Pro 设置"
         window.contentView = NSHostingView(rootView: view)
         window.center()

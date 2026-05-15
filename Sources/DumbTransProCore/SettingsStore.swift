@@ -37,20 +37,10 @@ public final class SettingsStore: ObservableObject {
     @Published public var provider: AIProvider = .openai
     @Published public var customBaseURL: String = ""
     @Published public var customModel: String = ""
-    @Published public var dumbModeEnabled: Bool = true
-    @Published public var properModeEnabled: Bool = true
-    @Published public var fancyModeEnabled: Bool = true
+    @Published public var translationStyle: TranslationStyle = .natural
 
     public init() {
         loadSettings()
-    }
-
-    public func isModeEnabled(_ mode: TranslationMode) -> Bool {
-        switch mode {
-        case .dumb: return dumbModeEnabled
-        case .proper: return properModeEnabled
-        case .fancy: return fancyModeEnabled
-        }
     }
 
     public func loadSettings() {
@@ -61,10 +51,12 @@ public final class SettingsStore: ObservableObject {
         }
         customBaseURL = UserDefaults.standard.string(forKey: "customBaseURL") ?? ""
         customModel = UserDefaults.standard.string(forKey: "customModel") ?? ""
-        // Mode toggles default to true (object(forKey:) returns nil if never set)
-        dumbModeEnabled = UserDefaults.standard.object(forKey: "dumbModeEnabled") as? Bool ?? true
-        properModeEnabled = UserDefaults.standard.object(forKey: "properModeEnabled") as? Bool ?? true
-        fancyModeEnabled = UserDefaults.standard.object(forKey: "fancyModeEnabled") as? Bool ?? true
+        if let raw = UserDefaults.standard.string(forKey: "translationStyle"),
+           let style = TranslationStyle(rawValue: raw) {
+            translationStyle = style
+        } else {
+            translationStyle = .natural
+        }
     }
 
     public func saveSettings() {
@@ -78,10 +70,22 @@ public final class SettingsStore: ObservableObject {
         UserDefaults.standard.set(provider.rawValue, forKey: "provider")
         UserDefaults.standard.set(customBaseURL, forKey: "customBaseURL")
         UserDefaults.standard.set(customModel, forKey: "customModel")
-        // Mode toggles
-        UserDefaults.standard.set(dumbModeEnabled, forKey: "dumbModeEnabled")
-        UserDefaults.standard.set(properModeEnabled, forKey: "properModeEnabled")
-        UserDefaults.standard.set(fancyModeEnabled, forKey: "fancyModeEnabled")
+        UserDefaults.standard.set(translationStyle.rawValue, forKey: "translationStyle")
+    }
+
+    public func updateSettings(
+        apiKey: String,
+        provider: AIProvider,
+        customBaseURL: String,
+        customModel: String,
+        translationStyle: TranslationStyle
+    ) {
+        self.apiKey = apiKey
+        self.provider = provider
+        self.customBaseURL = customBaseURL
+        self.customModel = customModel
+        self.translationStyle = translationStyle
+        saveSettings()
     }
 
     public var hasAPIKey: Bool {

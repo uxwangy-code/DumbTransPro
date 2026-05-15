@@ -63,7 +63,7 @@ final class LookupPanelManager {
                 model: settingsStore.model
             )
             do {
-                let result = try await service.lookup(originalText)
+                let result = try await service.lookup(originalText, style: settingsStore.translationStyle)
                 guard !Task.isCancelled else { return }
                 state.translation = result
                 state.isLoading = false

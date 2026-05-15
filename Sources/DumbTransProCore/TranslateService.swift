@@ -2,6 +2,7 @@ import Foundation
 
 public enum TranslateError: Error, LocalizedError {
     case noAPIKey
+    case requestTimedOut
     case apiError(statusCode: Int, message: String)
     case invalidResponse
     case networkError(Error)
@@ -9,6 +10,7 @@ public enum TranslateError: Error, LocalizedError {
     public var errorDescription: String? {
         switch self {
         case .noAPIKey: return "API Key 未设置"
+        case .requestTimedOut: return "翻译请求超时，请稍后重试"
         case .apiError(let code, let msg): return "API 错误 (\(code)): \(msg)"
         case .invalidResponse: return "无效的 API 响应"
         case .networkError(let err): return "网络错误: \(err.localizedDescription)"
@@ -29,14 +31,14 @@ public final class TranslateService: Sendable {
         self.session = session
     }
 
-    public func translate(_ text: String, mode: TranslationMode = .dumb) async throws -> String {
+    public func translate(_ text: String, style: TranslationStyle = .natural) async throws -> String {
         let url = URL(string: "\(baseURL)/chat/completions")!
-        var request = URLRequest(url: url, timeoutInterval: 15)
+        var request = URLRequest(url: url, timeoutInterval: 12)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = "\(mode.prompt)\n\n现在翻译：\(text)"
+        let prompt = "\(style.filenamePrompt)\n\n现在翻译：\(text)"
 
         let body: [String: Any] = [
             "model": model,
@@ -48,7 +50,7 @@ public final class TranslateService: Sendable {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw TranslateError.invalidResponse
@@ -69,14 +71,14 @@ public final class TranslateService: Sendable {
         return TextFormatter.toKebabCase(content)
     }
 
-    public func lookup(_ text: String) async throws -> String {
+    public func lookup(_ text: String, style: TranslationStyle = .natural) async throws -> String {
         let url = URL(string: "\(baseURL)/chat/completions")!
-        var request = URLRequest(url: url, timeoutInterval: 30)
+        var request = URLRequest(url: url, timeoutInterval: 20)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = "翻译以下文本为简体中文。只输出翻译结果，不要任何解释或额外内容。\n\n\(text)"
+        let prompt = "\(style.lookupPrompt)\n\n\(text)"
 
         let body: [String: Any] = [
             "model": model,
@@ -86,7 +88,7 @@ public final class TranslateService: Sendable {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await send(request)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw TranslateError.invalidResponse
@@ -114,5 +116,15 @@ public final class TranslateService: Sendable {
             return "Unknown error"
         }
         return message
+    }
+
+    private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {
+        do {
+            return try await session.data(for: request)
+        } catch let error as URLError where error.code == .timedOut {
+            throw TranslateError.requestTimedOut
+        } catch {
+            throw TranslateError.networkError(error)
+        }
     }
 }
