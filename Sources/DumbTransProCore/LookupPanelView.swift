@@ -1,0 +1,124 @@
+import SwiftUI
+
+struct LookupPanelView: View {
+    @ObservedObject var state: LookupPanelState
+
+    private let collapseThreshold = 100
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            headerBar
+            originalTextSection
+            Divider()
+            translationSection
+            footerBar
+        }
+        .frame(width: 360)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+    }
+
+    private var headerBar: some View {
+        HStack(alignment: .center) {
+            Text("划词翻译")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                state.onClose?()
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.secondary)
+                    .frame(width: 16, height: 16)
+                    .background(Color(nsColor: .tertiaryLabelColor).opacity(0.3))
+                    .clipShape(Circle())
+            }
+            .buttonStyle(.plain)
+        }
+        .padding(.horizontal, 14)
+        .padding(.top, 12)
+        .padding(.bottom, 8)
+    }
+
+    private var originalTextSection: some View {
+        let needsCollapse = state.originalText.count > collapseThreshold
+        return VStack(alignment: .leading, spacing: 4) {
+            if needsCollapse && !state.isOriginalExpanded {
+                Text(state.originalText)
+                    .lineLimit(2)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button("展开全文") {
+                    state.isOriginalExpanded = true
+                }
+                .font(.caption)
+                .buttonStyle(.plain)
+                .foregroundStyle(Color.accentColor)
+            } else {
+                Text(state.originalText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                if needsCollapse {
+                    Button("收起") {
+                        state.isOriginalExpanded = false
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+        .padding(.horizontal, 14)
+        .padding(.bottom, 10)
+    }
+
+    @ViewBuilder
+    private var translationSection: some View {
+        if state.isLoading {
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.75)
+                Text("翻译中…")
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 14)
+            .padding(.vertical, 16)
+        } else if let error = state.error {
+            Text(error)
+                .font(.subheadline)
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 16)
+        } else {
+            ScrollView {
+                Text(state.translation)
+                    .font(.body)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 16)
+            }
+            .frame(maxHeight: 160)
+        }
+    }
+
+    @ViewBuilder
+    private var footerBar: some View {
+        if !state.modelName.isEmpty {
+            HStack {
+                Spacer()
+                Text(state.modelName)
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 10)
+        }
+    }
+}

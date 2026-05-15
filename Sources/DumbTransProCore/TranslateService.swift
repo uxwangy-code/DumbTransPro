@@ -69,6 +69,44 @@ public final class TranslateService: Sendable {
         return TextFormatter.toKebabCase(content)
     }
 
+    public func lookup(_ text: String) async throws -> String {
+        let url = URL(string: "\(baseURL)/chat/completions")!
+        var request = URLRequest(url: url, timeoutInterval: 30)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let prompt = "翻译以下文本为简体中文。只输出翻译结果，不要任何解释或额外内容。\n\n\(text)"
+
+        let body: [String: Any] = [
+            "model": model,
+            "messages": [["role": "user", "content": prompt]],
+            "temperature": 0,
+            "max_tokens": 500,
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+
+        let (data, response) = try await session.data(for: request)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw TranslateError.invalidResponse
+        }
+        guard httpResponse.statusCode == 200 else {
+            let message = parseErrorMessage(from: data)
+            throw TranslateError.apiError(statusCode: httpResponse.statusCode, message: message)
+        }
+
+        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let choices = json["choices"] as? [[String: Any]],
+              let first = choices.first,
+              let message = first["message"] as? [String: Any],
+              let content = message["content"] as? String else {
+            throw TranslateError.invalidResponse
+        }
+
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     private func parseErrorMessage(from data: Data) -> String {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let error = json["error"] as? [String: Any],

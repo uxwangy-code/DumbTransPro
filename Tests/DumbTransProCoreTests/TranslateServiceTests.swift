@@ -126,6 +126,43 @@ struct TranslateServiceTests {
         #expect(result == "good-good-study")
     }
 
+    @Test func lookupReturnsRawText() async throws {
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "你好，世界！"
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.lookup("Hello, world!")
+        // lookup must NOT apply kebab-case formatting
+        #expect(result == "你好，世界！")
+    }
+
+    @Test func lookupTrimsWhitespace() async throws {
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "  人工智能  "
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.lookup("AI")
+        #expect(result == "人工智能")
+    }
+
     @Test func defaultModeIsDumb() async throws {
         let responseJSON = """
         {

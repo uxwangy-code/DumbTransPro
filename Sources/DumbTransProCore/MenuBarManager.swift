@@ -1,26 +1,65 @@
 import AppKit
+import ApplicationServices
 import SwiftUI
+import os.log
+
+private let appLog = OSLog(subsystem: "com.whimsycode.dumbtrans-pro", category: "main")
 
 @MainActor
 public final class MenuBarManager {
     private var statusItem: NSStatusItem?
     private let hotkeyManager = HotkeyManager()
     private let settingsStore = SettingsStore()
+    private let lookupPanelManager = LookupPanelManager()
     private var settingsWindow: NSWindow?
     private var isTranslating = false
     private var spinnerTimer: Timer?
     private let spinnerFrames: [String] = ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"]
     private var spinnerIndex = 0
+    private var hasAccessibility = false
+    private var accessibilityWatcher: Timer?
 
     public init() {
         writeDebug("MenuBarManager init started")
         setupStatusItem()
+        checkAccessibility(prompt: true)
+        writeDebug("Accessibility trusted at startup: \(hasAccessibility)")
         setupHotkey()
+        startAccessibilityWatcher()
         writeDebug("MenuBarManager init complete")
     }
 
     private func writeDebug(_ msg: String) {
         fputs("[GGS] \(msg)\n", stderr)
+        os_log("%{public}@", log: appLog, type: .info, msg)
+    }
+
+    private func checkAccessibility(prompt: Bool) {
+        let key = "AXTrustedCheckOptionPrompt" as CFString
+        let options = [key: prompt] as CFDictionary
+        hasAccessibility = AXIsProcessTrustedWithOptions(options)
+    }
+
+    private func startAccessibilityWatcher() {
+        accessibilityWatcher = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self else { return }
+                let previous = self.hasAccessibility
+                self.checkAccessibility(prompt: false)
+                if self.hasAccessibility != previous {
+                    self.writeDebug("Accessibility changed: \(previous) → \(self.hasAccessibility)")
+                    self.updateMenu()
+                }
+            }
+        }
+    }
+
+    @objc private func openAccessibilitySettings() {
+        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility") {
+            NSWorkspace.shared.open(url)
+        }
+        // Re-prompt to also surface our app in the list if it's missing
+        checkAccessibility(prompt: true)
     }
 
     private func setupStatusItem() {
@@ -33,6 +72,13 @@ public final class MenuBarManager {
 
     private func updateMenu() {
         let menu = NSMenu()
+
+        if !hasAccessibility {
+            let warning = NSMenuItem(title: "⚠ 请授权辅助功能（点击打开设置）", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+            warning.target = self
+            menu.addItem(warning)
+            menu.addItem(NSMenuItem.separator())
+        }
 
         if !settingsStore.hasAPIKey {
             let warning = NSMenuItem(title: "⚠ 请先设置 API Key", action: nil, keyEquivalent: "")
@@ -56,6 +102,9 @@ public final class MenuBarManager {
                 }
                 menu.addItem(item)
             }
+            let lookup = NSMenuItem(title: "划词翻译  ⌘⇧F", action: nil, keyEquivalent: "")
+            lookup.isEnabled = false
+            menu.addItem(lookup)
         }
 
         menu.addItem(NSMenuItem.separator())
@@ -74,9 +123,27 @@ public final class MenuBarManager {
         hotkeyManager.onHotkey = { [weak self] mode in
             self?.handleHotkey(mode)
         }
+        hotkeyManager.onLookupHotkey = { [weak self] in
+            self?.handleLookup()
+        }
         let success = hotkeyManager.start()
         if !success {
             showNotification(title: "瞎翻 Pro", message: "无法注册全局快捷键。")
+        }
+    }
+
+    private func handleLookup() {
+        guard settingsStore.hasAPIKey else {
+            showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
+            return
+        }
+        Task { @MainActor in
+            guard let selectedText = await ClipboardManager.getSelectedText(),
+                  !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
+                return
+            }
+            lookupPanelManager.show(originalText: selectedText, settingsStore: settingsStore)
         }
     }
 

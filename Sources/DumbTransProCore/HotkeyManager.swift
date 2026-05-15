@@ -1,9 +1,12 @@
 import AppKit
 import Carbon.HIToolbox
 
+private let lookupHotkeyID: UInt32 = 10
+
 @MainActor
 public final class HotkeyManager {
     public var onHotkey: (@MainActor (TranslationMode) -> Void)?
+    public var onLookupHotkey: (@MainActor () -> Void)?
     private var hotKeyRefs: [EventHotKeyRef] = []
 
     // Global reference for the C callback
@@ -59,6 +62,24 @@ public final class HotkeyManager {
             debugLog("Hotkey \(mode.hotkeyLabel) (\(mode.rawValue)) registered")
         }
 
+        // Register ⌘⇧F for lookup
+        let lookupKeyID = EventHotKeyID(signature: signature, id: lookupHotkeyID)
+        var lookupRef: EventHotKeyRef?
+        let lookupStatus = RegisterEventHotKey(
+            UInt32(kVK_ANSI_F),
+            modifiers,
+            lookupKeyID,
+            GetApplicationEventTarget(),
+            0,
+            &lookupRef
+        )
+        if lookupStatus == noErr, let ref = lookupRef {
+            hotKeyRefs.append(ref)
+            debugLog("Hotkey ⌘⇧F (lookup) registered")
+        } else {
+            debugLog("Failed to register ⌘⇧F (lookup): \(lookupStatus)")
+        }
+
         return !hotKeyRefs.isEmpty
     }
 
@@ -72,13 +93,18 @@ public final class HotkeyManager {
 
     // Called from the C callback
     nonisolated fileprivate static func handleHotKeyEvent(id: UInt32) {
-        guard let mode = TranslationMode.from(hotkeyID: id) else {
+        if let mode = TranslationMode.from(hotkeyID: id) {
+            debugLog("Hotkey triggered: \(mode.rawValue) (\(mode.hotkeyLabel))")
+            DispatchQueue.main.async {
+                instance?.onHotkey?(mode)
+            }
+        } else if id == lookupHotkeyID {
+            debugLog("Hotkey triggered: ⌘⇧F (lookup)")
+            DispatchQueue.main.async {
+                instance?.onLookupHotkey?()
+            }
+        } else {
             debugLog("Unknown hotkey id: \(id)")
-            return
-        }
-        debugLog("Hotkey triggered: \(mode.rawValue) (\(mode.hotkeyLabel))")
-        DispatchQueue.main.async {
-            instance?.onHotkey?(mode)
         }
     }
 }

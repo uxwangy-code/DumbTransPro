@@ -5,3 +5,6 @@ build/
 xcuserdata/
 DerivedData/
 .DS_Store
+
+# Generated icon sizes — only keep the 1024 source PNG and the final .icns
+Resources/Icon.iconset/icon_*.png
