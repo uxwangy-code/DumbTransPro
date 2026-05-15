@@ -20,6 +20,10 @@ cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/"
 
 mkdir -p "$CONTENTS_DIR/Resources"
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$CONTENTS_DIR/Resources/"
+cp "$PROJECT_DIR/Resources/MenuBarIcon.png" \
+   "$PROJECT_DIR/Resources/MenuBarIcon@2x.png" \
+   "$PROJECT_DIR/Resources/MenuBarIcon@3x.png" \
+   "$CONTENTS_DIR/Resources/"
 
 echo "Signing..."
 SIGNING_IDENTITY="${DUMBTRANS_SIGNING_IDENTITY:-DumbTransPro Dev}"

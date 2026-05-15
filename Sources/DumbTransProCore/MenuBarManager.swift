@@ -65,9 +65,22 @@ public final class MenuBarManager {
     private func setupStatusItem() {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = statusItem?.button {
-            button.title = "✦"
+            applyDefaultIcon(to: button)
         }
         updateMenu()
+    }
+
+    private func applyDefaultIcon(to button: NSStatusBarButton) {
+        button.title = ""
+        if let image = NSImage(named: "MenuBarIcon") {
+            image.isTemplate = true
+            image.size = NSSize(width: 18, height: 18)
+            button.image = image
+        } else {
+            // Fallback if asset is missing for any reason
+            button.image = nil
+            button.title = "✦"
+        }
     }
 
     private func updateMenu() {
@@ -219,7 +232,10 @@ public final class MenuBarManager {
 
     private func startSpinner() {
         spinnerIndex = 0
-        statusItem?.button?.title = spinnerFrames[0]
+        if let button = statusItem?.button {
+            button.image = nil
+            button.title = spinnerFrames[0]
+        }
         spinnerTimer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in
                 guard let self else { return }
@@ -232,16 +248,26 @@ public final class MenuBarManager {
     private func stopSpinner() {
         spinnerTimer?.invalidate()
         spinnerTimer = nil
-        statusItem?.button?.title = "✦"
+        if let button = statusItem?.button {
+            applyDefaultIcon(to: button)
+        }
     }
 
     private func showNotification(title: String, message: String) {
-        let original = statusItem?.button?.title ?? "✦"
-        statusItem?.button?.title = "✗"
+        guard let button = statusItem?.button else { return }
+        let savedImage = button.image
+        let savedTitle = button.title
+        button.image = nil
+        button.title = "✗"
         fputs("[GGS] \(title): \(message)\n", stderr)
-        Task { @MainActor in
+        Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
-            statusItem?.button?.title = original
+            guard let self, let button = self.statusItem?.button else { return }
+            if savedImage != nil {
+                self.applyDefaultIcon(to: button)
+            } else {
+                button.title = savedTitle
+            }
         }
     }
 }
