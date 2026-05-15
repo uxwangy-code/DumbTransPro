@@ -22,6 +22,18 @@ mkdir -p "$CONTENTS_DIR/Resources"
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$CONTENTS_DIR/Resources/"
 
 echo "Signing..."
-codesign --force --sign - "$APP_DIR"
+SIGNING_IDENTITY="${DUMBTRANS_SIGNING_IDENTITY:-DumbTransPro Dev}"
+# Drop -v so we accept self-signed (untrusted but present) identities.
+# codesign signs fine with them; TCC matches on the cert's designated
+# requirement, not trust chain.
+if security find-identity -p codesigning | grep -q "\"${SIGNING_IDENTITY}\""; then
+    echo "  → using identity: ${SIGNING_IDENTITY}"
+    codesign --force --deep --sign "${SIGNING_IDENTITY}" "$APP_DIR"
+else
+    echo "  ⚠ identity '${SIGNING_IDENTITY}' not found — falling back to adhoc."
+    echo "     TCC grants (Accessibility) will NOT persist across rebuilds."
+    echo "     Fix: run ./scripts/setup-signing.sh once to create the identity."
+    codesign --force --sign - "$APP_DIR"
+fi
 
 echo "Done: $APP_DIR"
