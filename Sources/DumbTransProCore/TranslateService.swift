@@ -21,6 +21,16 @@ public enum TranslateError: Error, LocalizedError {
     }
 }
 
+public struct LookupResult: Sendable, Equatable {
+    public let text: String
+    public let didFallback: Bool
+
+    public init(text: String, didFallback: Bool) {
+        self.text = text
+        self.didFallback = didFallback
+    }
+}
+
 public final class TranslateService: Sendable {
     private let apiKey: String
     private let baseURL: String
@@ -34,57 +44,110 @@ public final class TranslateService: Sendable {
         self.session = session
     }
 
+    // MARK: - Public API
+
     public func translate(_ text: String, style: TranslationStyle = .natural) async throws -> String {
-        let url = URL(string: "\(baseURL)/chat/completions")!
-        var request = URLRequest(url: url, timeoutInterval: 12)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let raw = try await chatRequest(
+            system: style.filenameSystem,
+            examples: style.filenameExamples,
+            userText: text,
+            timeout: 30,
+            maxTokens: 1500
+        )
 
-        let prompt = "\(style.filenamePrompt)\n\n现在翻译：\(text)"
-
-        let body: [String: Any] = [
-            "model": model,
-            "messages": [
-                ["role": "user", "content": prompt]
-            ],
-            "temperature": 0,
-            "max_tokens": 1500,
-        ]
-        request.httpBody = try JSONSerialization.data(withJSONObject: body)
-
-        let (data, response) = try await send(request)
-
-        guard let httpResponse = response as? HTTPURLResponse else {
-            throw TranslateError.invalidResponse
+        if style != .natural && Self.isLikelyLeakedKebab(input: text, output: raw) {
+            // Silent fallback: pasted into a filename, prefix would corrupt it
+            let natural = try await chatRequest(
+                system: TranslationStyle.natural.filenameSystem,
+                examples: TranslationStyle.natural.filenameExamples,
+                userText: text,
+                timeout: 30,
+                maxTokens: 1500
+            )
+            return TextFormatter.toKebabCase(natural)
         }
-        guard httpResponse.statusCode == 200 else {
-            let message = parseErrorMessage(from: data)
-            if httpResponse.statusCode == 400 && Self.isContentBlock(message) {
-                throw TranslateError.contentBlocked(message: message)
-            }
-            throw TranslateError.apiError(statusCode: httpResponse.statusCode, message: message)
-        }
-
-        let content = try extractContent(from: data)
-
-        return TextFormatter.toKebabCase(content)
+        return TextFormatter.toKebabCase(raw)
     }
 
-    public func lookup(_ text: String, style: TranslationStyle = .natural) async throws -> String {
+    public func lookup(_ text: String, style: TranslationStyle = .natural) async throws -> LookupResult {
+        let raw = try await chatRequest(
+            system: style.lookupSystem,
+            examples: style.lookupExamples,
+            userText: text,
+            timeout: 90,
+            maxTokens: 4000
+        )
+
+        if style != .natural && Self.isLikelyLeakedLookup(input: text, output: raw) {
+            let natural = try await chatRequest(
+                system: TranslationStyle.natural.lookupSystem,
+                examples: TranslationStyle.natural.lookupExamples,
+                userText: text,
+                timeout: 90,
+                maxTokens: 4000
+            )
+            return LookupResult(
+                text: natural.trimmingCharacters(in: .whitespacesAndNewlines),
+                didFallback: true
+            )
+        }
+        return LookupResult(
+            text: raw.trimmingCharacters(in: .whitespacesAndNewlines),
+            didFallback: false
+        )
+    }
+
+    // MARK: - Leak detection (exposed for tests)
+
+    static func isLikelyLeakedLookup(input: String, output: String) -> Bool {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return true }
+        if trimmed.contains("→") || trimmed.contains(" -> ") { return true }
+        let lines = trimmed.split(separator: "\n", omittingEmptySubsequences: true)
+        // Multi-line list response when input is short — almost certainly a leak
+        if input.count <= 80 && lines.count >= 5 { return true }
+        return false
+    }
+
+    static func isLikelyLeakedKebab(input: String, output: String) -> Bool {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return true }
+        if trimmed.contains("→") || trimmed.contains(" -> ") { return true }
+        // A filename should be one line; multiple lines → leak
+        let lines = trimmed.split(separator: "\n", omittingEmptySubsequences: true)
+        if lines.count >= 2 { return true }
+        // Unreasonably long for a filename
+        if trimmed.count > 120 { return true }
+        return false
+    }
+
+    // MARK: - HTTP
+
+    private func chatRequest(
+        system: String,
+        examples: [(input: String, output: String)],
+        userText: String,
+        timeout: TimeInterval,
+        maxTokens: Int
+    ) async throws -> String {
         let url = URL(string: "\(baseURL)/chat/completions")!
-        var request = URLRequest(url: url, timeoutInterval: 20)
+        var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
         request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        let prompt = "\(style.lookupPrompt)\n\n\(text)"
+        var messages: [[String: Any]] = [["role": "system", "content": system]]
+        for pair in examples {
+            messages.append(["role": "user", "content": pair.input])
+            messages.append(["role": "assistant", "content": pair.output])
+        }
+        messages.append(["role": "user", "content": userText])
 
         let body: [String: Any] = [
             "model": model,
-            "messages": [["role": "user", "content": prompt]],
+            "messages": messages,
             "temperature": 0,
-            "max_tokens": 4000,
+            "max_tokens": maxTokens,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -101,9 +164,7 @@ public final class TranslateService: Sendable {
             throw TranslateError.apiError(statusCode: httpResponse.statusCode, message: message)
         }
 
-        let content = try extractContent(from: data)
-
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+        return try extractContent(from: data)
     }
 
     private func extractContent(from data: Data) throws -> String {
@@ -117,9 +178,6 @@ public final class TranslateService: Sendable {
         if !primary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return primary
         }
-        // content empty: model likely truncated mid-reasoning. Don't show reasoning_content
-        // (it's chain-of-thought, not the answer). Surface a clear error so the user can
-        // pick a non-reasoning model or raise their token budget.
         let finishReason = (first["finish_reason"] as? String) ?? ""
         if finishReason == "length" {
             throw TranslateError.apiError(statusCode: 200, message: "模型未输出最终答案(可能被 token 上限截断)。请改用非推理模型,或切换到其他端点。")

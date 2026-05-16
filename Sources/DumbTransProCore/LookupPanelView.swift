@@ -5,7 +5,8 @@ struct LookupPanelView: View {
 
     private let collapseThreshold = 100
     static let panelWidth: CGFloat = 480
-    static let maxTranslationHeight: CGFloat = 420
+    static let maxOriginalHeight: CGFloat = 200
+    static let maxTranslationHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -60,17 +61,25 @@ struct LookupPanelView: View {
                 .buttonStyle(.plain)
                 .foregroundStyle(Color.accentColor)
             } else {
-                Text(state.originalText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 if needsCollapse {
+                    ScrollView(.vertical, showsIndicators: true) {
+                        Text(state.originalText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .frame(maxHeight: Self.maxOriginalHeight)
                     Button("收起") {
                         state.isOriginalExpanded = false
                     }
                     .font(.caption)
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.accentColor)
+                } else {
+                    Text(state.originalText)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
         }
@@ -81,12 +90,15 @@ struct LookupPanelView: View {
     @ViewBuilder
     private var translationSection: some View {
         if state.isLoading {
-            HStack(spacing: 8) {
+            HStack(alignment: .center, spacing: 8) {
                 ProgressView()
                     .scaleEffect(0.75)
-                Text("翻译中…")
+                Text(state.isSlowLoading
+                     ? "文本较长,模型返回较慢。本工具不太适合翻译长文本,建议把原文拆短一点再试。"
+                     : "翻译中…")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 14)
@@ -100,13 +112,20 @@ struct LookupPanelView: View {
                 .padding(.vertical, 16)
         } else {
             ScrollView(.vertical, showsIndicators: true) {
-                Text(state.translation)
-                    .font(.title3)
-                    .lineSpacing(4)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .textSelection(.enabled)
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 18)
+                VStack(alignment: .leading, spacing: 12) {
+                    if state.didFallback {
+                        Text("😅 太难了,我实在装不下去了...")
+                            .font(.caption)
+                            .foregroundStyle(Color.accentColor)
+                    }
+                    Text(state.translation)
+                        .font(.title3)
+                        .lineSpacing(4)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .textSelection(.enabled)
+                }
+                .padding(.horizontal, 18)
+                .padding(.vertical, 18)
             }
             .frame(maxHeight: Self.maxTranslationHeight)
         }
