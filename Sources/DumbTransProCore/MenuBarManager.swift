@@ -138,19 +138,48 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
-        let accessibilityTitle = hasAccessibility
-            ? "辅助功能权限：已授权（点击管理/取消）"
-            : "辅助功能权限：未授权（点击打开设置）"
-        let accessibility = NSMenuItem(title: accessibilityTitle, action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        let accessibility = NSMenuItem(title: "", action: #selector(openAccessibilitySettings), keyEquivalent: "")
+        accessibility.attributedTitle = makeAccessibilityTitle()
+        accessibility.image = menuSymbol(hasAccessibility ? "checkmark.shield" : "exclamationmark.shield")
         accessibility.target = self
         menu.addItem(accessibility)
 
         let settings = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
+        settings.image = menuSymbol("gearshape")
         settings.target = self
         menu.addItem(settings)
 
         let quit = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        quit.image = menuSymbol("power")
         menu.addItem(quit)
+    }
+
+    private func menuSymbol(_ name: String) -> NSImage? {
+        guard let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) else { return nil }
+        let config = NSImage.SymbolConfiguration(pointSize: 13, weight: .regular)
+        return image.withSymbolConfiguration(config)
+    }
+
+    private func makeAccessibilityTitle() -> NSAttributedString {
+        let prefix: String
+        let suffix: String
+        if hasAccessibility {
+            prefix = "辅助功能权限：已授权"
+            suffix = "（点击管理/取消）"
+        } else {
+            prefix = "辅助功能权限：未授权"
+            suffix = "（点击打开设置）"
+        }
+        let font = NSFont.menuFont(ofSize: 0)
+        let attributed = NSMutableAttributedString(
+            string: prefix,
+            attributes: [.font: font, .foregroundColor: NSColor.labelColor]
+        )
+        attributed.append(NSAttributedString(
+            string: suffix,
+            attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
+        ))
+        return attributed
     }
 
     private func setupHotkey() {

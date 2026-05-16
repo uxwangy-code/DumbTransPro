@@ -81,7 +81,9 @@ final class LookupPanelManager {
         // Force a layout pass so fittingSize reflects current state
         controller.view.layoutSubtreeIfNeeded()
         let fitting = controller.view.fittingSize
-        let newHeight = max(fitting.height, 180)
+        let screenCap = (panel.screen ?? NSScreen.main)?.visibleFrame.height ?? 900
+        let maxHeight = min(screenCap * 0.85, 720)
+        let newHeight = min(max(fitting.height, 180), maxHeight)
         var frame = panel.frame
         // Keep the top of the panel anchored as the content grows downward
         let delta = newHeight - frame.size.height

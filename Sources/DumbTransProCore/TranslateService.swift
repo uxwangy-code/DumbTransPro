@@ -4,6 +4,7 @@ public enum TranslateError: Error, LocalizedError {
     case noAPIKey
     case requestTimedOut
     case apiError(statusCode: Int, message: String)
+    case contentBlocked(message: String)
     case invalidResponse
     case networkError(Error)
 
@@ -12,6 +13,8 @@ public enum TranslateError: Error, LocalizedError {
         case .noAPIKey: return "API Key 未设置"
         case .requestTimedOut: return "翻译请求超时，请稍后重试"
         case .apiError(let code, let msg): return "API 错误 (\(code)): \(msg)"
+        case .contentBlocked(let msg):
+            return "服务商触发了内容审核,可能涉及敏感内容。\n建议改用 OpenAI 或 Friday 等其他端点重试。\n\n服务商返回:\(msg)"
         case .invalidResponse: return "无效的 API 响应"
         case .networkError(let err): return "网络错误: \(err.localizedDescription)"
         }
@@ -46,7 +49,7 @@ public final class TranslateService: Sendable {
                 ["role": "user", "content": prompt]
             ],
             "temperature": 0,
-            "max_tokens": 100,
+            "max_tokens": 1500,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -57,16 +60,13 @@ public final class TranslateService: Sendable {
         }
         guard httpResponse.statusCode == 200 else {
             let message = parseErrorMessage(from: data)
+            if httpResponse.statusCode == 400 && Self.isContentBlock(message) {
+                throw TranslateError.contentBlocked(message: message)
+            }
             throw TranslateError.apiError(statusCode: httpResponse.statusCode, message: message)
         }
 
-        guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let choices = json["choices"] as? [[String: Any]],
-              let first = choices.first,
-              let message = first["message"] as? [String: Any],
-              let content = message["content"] as? String else {
-            throw TranslateError.invalidResponse
-        }
+        let content = try extractContent(from: data)
 
         return TextFormatter.toKebabCase(content)
     }
@@ -84,7 +84,7 @@ public final class TranslateService: Sendable {
             "model": model,
             "messages": [["role": "user", "content": prompt]],
             "temperature": 0,
-            "max_tokens": 500,
+            "max_tokens": 4000,
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
@@ -95,18 +95,42 @@ public final class TranslateService: Sendable {
         }
         guard httpResponse.statusCode == 200 else {
             let message = parseErrorMessage(from: data)
+            if httpResponse.statusCode == 400 && Self.isContentBlock(message) {
+                throw TranslateError.contentBlocked(message: message)
+            }
             throw TranslateError.apiError(statusCode: httpResponse.statusCode, message: message)
         }
 
+        let content = try extractContent(from: data)
+
+        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private func extractContent(from data: Data) throws -> String {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
               let first = choices.first,
-              let message = first["message"] as? [String: Any],
-              let content = message["content"] as? String else {
+              let message = first["message"] as? [String: Any] else {
             throw TranslateError.invalidResponse
         }
+        let primary = (message["content"] as? String) ?? ""
+        if !primary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return primary
+        }
+        // content empty: model likely truncated mid-reasoning. Don't show reasoning_content
+        // (it's chain-of-thought, not the answer). Surface a clear error so the user can
+        // pick a non-reasoning model or raise their token budget.
+        let finishReason = (first["finish_reason"] as? String) ?? ""
+        if finishReason == "length" {
+            throw TranslateError.apiError(statusCode: 200, message: "模型未输出最终答案(可能被 token 上限截断)。请改用非推理模型,或切换到其他端点。")
+        }
+        throw TranslateError.invalidResponse
+    }
 
-        return content.trimmingCharacters(in: .whitespacesAndNewlines)
+    private static func isContentBlock(_ message: String) -> Bool {
+        let lower = message.lowercased()
+        let keywords = ["敏感", "不安全", "内容审核", "合规", "content policy", "moderation", "unsafe content", "sensitive content"]
+        return keywords.contains { lower.contains($0.lowercased()) }
     }
 
     private func parseErrorMessage(from data: Data) -> String {

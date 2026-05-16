@@ -5,6 +5,7 @@ struct LookupPanelView: View {
 
     private let collapseThreshold = 100
     static let panelWidth: CGFloat = 480
+    static let maxTranslationHeight: CGFloat = 420
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -98,13 +99,16 @@ struct LookupPanelView: View {
                 .padding(.horizontal, 14)
                 .padding(.vertical, 16)
         } else {
-            Text(state.translation)
-                .font(.title3)
-                .lineSpacing(4)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
-                .padding(.horizontal, 18)
-                .padding(.vertical, 18)
+            ScrollView(.vertical, showsIndicators: true) {
+                Text(state.translation)
+                    .font(.title3)
+                    .lineSpacing(4)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 18)
+            }
+            .frame(maxHeight: Self.maxTranslationHeight)
         }
     }
 
