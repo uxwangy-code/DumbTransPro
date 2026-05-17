@@ -143,6 +143,15 @@ public struct HotkeyChipView: View {
         .onChange(of: externalConfig) { newValue in
             coordinator.syncExternalConfig(newValue)
         }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { _ in
+            // If the settings window loses key while we're recording, bail cleanly.
+            switch coordinator.state {
+            case .recording, .conflict:
+                coordinator.dispatch(.focusLost)
+            default:
+                break
+            }
+        }
     }
 
     @ViewBuilder
