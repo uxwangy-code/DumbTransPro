@@ -1,5 +1,6 @@
 import AppKit
 import ApplicationServices
+import Combine
 import SwiftUI
 import os.log
 
@@ -18,6 +19,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private var spinnerIndex = 0
     private var hasAccessibility = false
     private var accessibilityWatcher: Timer?
+    private var cancellables: Set<AnyCancellable> = []
 
     public override init() {
         super.init()
@@ -26,8 +28,27 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         writeDebug("Accessibility trusted at startup: \(hasAccessibility)")
         setupStatusItem()
         setupHotkey()
+        observeHotkeyChanges()
         startAccessibilityWatcher()
         writeDebug("MenuBarManager init complete")
+    }
+
+    private func observeHotkeyChanges() {
+        settingsStore.$hotkeys
+            .dropFirst()  // skip the initial load — start(initial:) already registered those
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                self.applyHotkeyChanges()
+                self.updateMenu()
+            }
+            .store(in: &cancellables)
+    }
+
+    private func applyHotkeyChanges() {
+        for action in TranslationAction.allCases {
+            _ = hotkeyManager.reregister(action: action, hotkey: settingsStore.hotkey(for: action))
+        }
     }
 
     private func writeDebug(_ msg: String) {
@@ -130,14 +151,23 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             menu.addItem(status)
         } else {
             for action in TranslationAction.allCases {
-                let label: String
+                let item: NSMenuItem
                 if let cfg = settingsStore.hotkey(for: action) {
-                    label = "\(action.title)  \(cfg.displayString)"
+                    item = NSMenuItem(
+                        title: "\(action.title)  \(cfg.displayString)",
+                        action: nil,
+                        keyEquivalent: ""
+                    )
+                    item.isEnabled = false
                 } else {
-                    label = "\(action.title)  (未设置)"
+                    item = NSMenuItem(
+                        title: action.title,
+                        action: #selector(menuActionTriggered(_:)),
+                        keyEquivalent: ""
+                    )
+                    item.target = self
+                    item.representedObject = action
                 }
-                let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
-                item.isEnabled = false
                 menu.addItem(item)
             }
         }
@@ -210,6 +240,11 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         }
     }
 
+    @objc private func menuActionTriggered(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? TranslationAction else { return }
+        handleAction(action)
+    }
+
     private func handleLookup() {
         guard settingsStore.hasAPIKey else {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
@@ -280,12 +315,12 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         settingsWindow = nil
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        let view = SettingsView(store: settingsStore) { [weak window] in
+        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager) { [weak window] in
             window?.close()
         }
         window.title = "瞎翻 Pro 设置"

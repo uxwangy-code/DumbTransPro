@@ -2,6 +2,7 @@ import SwiftUI
 
 public struct SettingsView: View {
     @ObservedObject var store: SettingsStore
+    let hotkeyManager: HotkeyManager
     @Environment(\.dismiss) private var dismiss
     private let onClose: (() -> Void)?
 
@@ -12,8 +13,9 @@ public struct SettingsView: View {
     @State private var translationStyle: TranslationStyle
     @State private var isAPIKeyVisible: Bool = false
 
-    public init(store: SettingsStore, onClose: (() -> Void)? = nil) {
+    public init(store: SettingsStore, hotkeyManager: HotkeyManager, onClose: (() -> Void)? = nil) {
         self.store = store
+        self.hotkeyManager = hotkeyManager
         self.onClose = onClose
         _selectedProvider = State(initialValue: store.activeProvider)
         _translationStyle = State(initialValue: store.translationStyle)
@@ -37,6 +39,10 @@ public struct SettingsView: View {
                 apiKeySection(provider: provider)
                 modelSection(provider: provider)
             }
+
+            Divider()
+
+            HotkeySection(store: store, hotkeyManager: hotkeyManager)
 
             Divider()
 
