@@ -52,7 +52,7 @@ enum KS_MainMenu {
 }
 
 /// Minimal keyCode → lowercase character mapping for NSMenuItem.keyEquivalent comparison.
-enum KS_KeyCodeToChar {
+private enum KS_KeyCodeToChar {
     static func lowercaseChar(forCarbonKeyCode keyCode: Int) -> String {
         switch keyCode {
         case kVK_ANSI_A: return "a"

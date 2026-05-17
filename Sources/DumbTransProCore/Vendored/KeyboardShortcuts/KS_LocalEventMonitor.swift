@@ -7,12 +7,13 @@
 #if os(macOS)
 import AppKit
 
+@MainActor
 final class KS_LocalEventMonitor {
     private let events: NSEvent.EventTypeMask
-    private let callback: (NSEvent) -> NSEvent?
+    private let callback: @MainActor (NSEvent) -> NSEvent?
     private var monitor: Any?
 
-    init(events: NSEvent.EventTypeMask, callback: @escaping (NSEvent) -> NSEvent?) {
+    init(events: NSEvent.EventTypeMask, callback: @escaping @MainActor (NSEvent) -> NSEvent?) {
         self.events = events
         self.callback = callback
     }
@@ -26,6 +27,11 @@ final class KS_LocalEventMonitor {
         monitor = nil
     }
 
-    deinit { stop() }
+    nonisolated func cleanUp() {
+        // Called from deinit — must hop to main actor to access monitor.
+        MainActor.assumeIsolated { stop() }
+    }
+
+    deinit { cleanUp() }
 }
 #endif

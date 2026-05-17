@@ -30,6 +30,7 @@ enum KS_SystemShortcuts {
 
     /// True if the given Carbon combo is registered in macOS as a symbolic hotkey.
     /// F12 is excluded (system reports it but it's unused on modern macOS).
+    /// - Note: Calls CopySymbolicHotKeys (IPC) on every invocation. Cache the result if calling frequently (e.g., per recording session).
     static func contains(carbonKeyCode: Int, carbonModifiers: Int) -> Bool {
         if carbonKeyCode == kVK_F12, carbonModifiers == 0 { return false }
         let normalized = NSEvent.ModifierFlags(carbonModifiers: carbonModifiers).carbonRepresentation

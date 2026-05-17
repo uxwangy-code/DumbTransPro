@@ -59,7 +59,7 @@ final class KS_HotKey {
     }
 
     deinit {
-        // Both KS_HotKey and KS_HotKeyCenter are @MainActor, so deallocation happens on main thread.
+        // Swift 6 guarantees @MainActor deinit runs on main actor; assumeIsolated is purely defensive.
         MainActor.assumeIsolated {
             KS_HotKeyCenter.shared.unregister(self)
         }
