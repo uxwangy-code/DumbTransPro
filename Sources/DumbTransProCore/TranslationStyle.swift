@@ -196,6 +196,15 @@ public enum TranslationAction: CaseIterable, Sendable {
         }
     }
 
+    public var defaultHotkey: HotkeyConfig {
+        switch self {
+        case .rewriteToEnglish:
+            return HotkeyConfig(keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | shiftKey))
+        case .lookup:
+            return HotkeyConfig(keyCode: UInt32(kVK_ANSI_F), modifiers: UInt32(cmdKey | shiftKey))
+        }
+    }
+
     public static func from(hotkeyID: UInt32) -> TranslationAction? {
         allCases.first { $0.hotkeyID == hotkeyID }
     }
