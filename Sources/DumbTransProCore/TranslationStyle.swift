@@ -205,6 +205,13 @@ public enum TranslationAction: CaseIterable, Sendable {
         }
     }
 
+    public var persistenceKey: String {
+        switch self {
+        case .rewriteToEnglish: return "rewriteToEnglish"
+        case .lookup:           return "lookup"
+        }
+    }
+
     public static func from(hotkeyID: UInt32) -> TranslationAction? {
         allCases.first { $0.hotkeyID == hotkeyID }
     }
