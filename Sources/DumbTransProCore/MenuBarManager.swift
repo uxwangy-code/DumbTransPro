@@ -130,7 +130,13 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             menu.addItem(status)
         } else {
             for action in TranslationAction.allCases {
-                let item = NSMenuItem(title: "\(action.title)  \(action.hotkeyLabel)", action: nil, keyEquivalent: "")
+                let label: String
+                if let cfg = settingsStore.hotkey(for: action) {
+                    label = "\(action.title)  \(cfg.displayString)"
+                } else {
+                    label = "\(action.title)  (未设置)"
+                }
+                let item = NSMenuItem(title: label, action: nil, keyEquivalent: "")
                 item.isEnabled = false
                 menu.addItem(item)
             }
@@ -186,9 +192,12 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         hotkeyManager.onAction = { [weak self] action in
             self?.handleAction(action)
         }
-        let success = hotkeyManager.start()
-        if !success {
-            showNotification(title: "瞎翻 Pro", message: "无法注册全局快捷键。")
+        let initial: [TranslationAction: HotkeyConfig?] = Dictionary(
+            uniqueKeysWithValues: TranslationAction.allCases.map { ($0, settingsStore.hotkey(for: $0)) }
+        )
+        let errors = hotkeyManager.start(initial: initial)
+        if !errors.isEmpty {
+            showNotification(title: "瞎翻 Pro", message: "部分全局快捷键注册失败,可在设置中调整。")
         }
     }
 
