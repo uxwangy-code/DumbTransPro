@@ -16,7 +16,7 @@ public struct HotkeySection: View {
                 .font(.subheadline)
 
             ForEach(TranslationAction.allCases, id: \.self) { action in
-                HStack(alignment: .center) {
+                HStack(alignment: .center, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
                         Text(action.title)
                             .font(.body)
@@ -24,7 +24,7 @@ public struct HotkeySection: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
-                    Spacer()
+                    Spacer(minLength: 0)
                     HotkeyChipView(
                         config: store.hotkey(for: action),
                         defaultHotkey: action.defaultHotkey,
@@ -34,6 +34,7 @@ public struct HotkeySection: View {
                         onRecordingEnded:   { hotkeyManager.resumeAll() }
                     )
                 }
+                .padding(.trailing, 4)
             }
         }
     }

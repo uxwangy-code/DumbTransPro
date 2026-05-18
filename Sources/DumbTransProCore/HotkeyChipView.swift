@@ -154,6 +154,8 @@ public struct HotkeyChipView: View {
         }
     }
 
+    private let chipWidth: CGFloat = 130
+
     @ViewBuilder
     private var chip: some View {
         switch coordinator.state {
@@ -162,6 +164,7 @@ public struct HotkeyChipView: View {
                 Text(externalConfig?.displayString ?? coordinator.defaultHotkey.displayString)
                     .font(.system(.body, design: .monospaced))
                     .foregroundStyle(.primary)
+                Spacer(minLength: 0)
                 Button { coordinator.dispatch(.clearClicked) } label: {
                     Image(systemName: "xmark.circle.fill")
                         .foregroundStyle(.secondary)
@@ -170,7 +173,9 @@ public struct HotkeyChipView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
+            .frame(width: chipWidth)
             .background(chipBackground(borderColor: borderColor))
+            .contentShape(Rectangle())
             .help("更改快捷键")
             .onTapGesture { coordinator.dispatch(.chipClicked) }
 
@@ -178,6 +183,7 @@ public struct HotkeyChipView: View {
             HStack(spacing: 6) {
                 Text("按下快捷键…")
                     .foregroundStyle(.secondary)
+                Spacer(minLength: 0)
                 Button { coordinator.dispatch(.resetClicked) } label: {
                     Image(systemName: "arrow.counterclockwise.circle.fill")
                         .foregroundStyle(.secondary)
@@ -186,6 +192,7 @@ public struct HotkeyChipView: View {
             }
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
+            .frame(width: chipWidth)
             .background(chipBackground(borderColor: borderColor))
 
         case .cleared:
@@ -194,7 +201,7 @@ public struct HotkeyChipView: View {
                     .foregroundStyle(.secondary)
                     .padding(.horizontal, 10)
                     .padding(.vertical, 5)
-                    .frame(minWidth: 110)
+                    .frame(width: chipWidth)
                     .background(chipBackground(borderColor: Color.secondary.opacity(0.3)))
             }
             .buttonStyle(.plain)
@@ -228,6 +235,5 @@ public struct HotkeyChipView: View {
             .overlay(
                 RoundedRectangle(cornerRadius: 6).stroke(borderColor, lineWidth: 1.5)
             )
-            .frame(minWidth: 110)
     }
 }
