@@ -175,24 +175,26 @@ public enum TranslationAction: CaseIterable, Sendable {
         }
     }
 
-    public var hotkeyLabel: String {
-        switch self {
-        case .rewriteToEnglish: return "⌘⇧R"
-        case .lookup: return "⌘⇧F"
-        }
-    }
-
-    public var keyCode: UInt32 {
-        switch self {
-        case .rewriteToEnglish: return UInt32(kVK_ANSI_R)
-        case .lookup: return UInt32(kVK_ANSI_F)
-        }
-    }
-
     public var hotkeyID: UInt32 {
         switch self {
         case .rewriteToEnglish: return 1
         case .lookup: return 2
+        }
+    }
+
+    public var defaultHotkey: HotkeyConfig {
+        switch self {
+        case .rewriteToEnglish:
+            return HotkeyConfig(keyCode: UInt32(kVK_ANSI_R), modifiers: UInt32(cmdKey | shiftKey))
+        case .lookup:
+            return HotkeyConfig(keyCode: UInt32(kVK_ANSI_F), modifiers: UInt32(cmdKey | shiftKey))
+        }
+    }
+
+    public var persistenceKey: String {
+        switch self {
+        case .rewriteToEnglish: return "rewriteToEnglish"
+        case .lookup:           return "lookup"
         }
     }
 

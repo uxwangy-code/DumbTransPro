@@ -4,110 +4,78 @@ import Carbon.HIToolbox
 @MainActor
 public final class HotkeyManager {
     public var onAction: (@MainActor (TranslationAction) -> Void)?
-    private var hotKeyRefs: [EventHotKeyRef] = []
 
-    // Global reference for the C callback
-    nonisolated(unsafe) private static var instance: HotkeyManager?
+    public enum RegisterError: Error, Equatable {
+        case duplicateInProcess
+        case invalidParameter
+        case unknown(OSStatus)
+    }
+
+    private var hotKeys: [TranslationAction: KS_HotKey] = [:]
 
     public init() {}
 
-    public func start() -> Bool {
-        HotkeyManager.instance = self
-
-        // Install Carbon event handler for hotkey events
-        var eventType = EventTypeSpec(
-            eventClass: OSType(kEventClassKeyboard),
-            eventKind: UInt32(kEventHotKeyPressed)
-        )
-
-        var handlerRef: EventHandlerRef?
-        let installStatus = InstallEventHandler(
-            GetApplicationEventTarget(),
-            hotKeyHandler,
-            1,
-            &eventType,
-            nil,
-            &handlerRef
-        )
-
-        if installStatus != noErr {
-            debugLog("Failed to install event handler: \(installStatus)")
-            return false
-        }
-
-        let modifiers = UInt32(cmdKey | shiftKey)
-        let signature = OSType(0x44545052) // "DTPR"
-
+    @discardableResult
+    public func start(initial: [TranslationAction: HotkeyConfig?]) -> [TranslationAction: RegisterError] {
+        var errors: [TranslationAction: RegisterError] = [:]
         for action in TranslationAction.allCases {
-            let hotKeyID = EventHotKeyID(signature: signature, id: action.hotkeyID)
-            var ref: EventHotKeyRef?
-            let status = RegisterEventHotKey(
-                action.keyCode,
-                modifiers,
-                hotKeyID,
-                GetApplicationEventTarget(),
-                0,
-                &ref
-            )
-            if status != noErr {
-                debugLog("Failed to register hotkey \(action.hotkeyLabel): \(status)")
-                continue
+            // If the caller explicitly passes nil for an action, honor that. Otherwise fall back to the default.
+            let config: HotkeyConfig?
+            if let entry = initial[action] {
+                config = entry
+            } else {
+                config = action.defaultHotkey
             }
-            if let ref = ref {
-                hotKeyRefs.append(ref)
+            if let err = registerInternal(action: action, config: config) {
+                errors[action] = err
             }
-            debugLog("Hotkey \(action.hotkeyLabel) (\(action.title)) registered")
         }
-
-        return !hotKeyRefs.isEmpty
+        return errors
     }
 
     public func stop() {
-        for ref in hotKeyRefs {
-            UnregisterEventHotKey(ref)
-        }
-        hotKeyRefs.removeAll()
-        HotkeyManager.instance = nil
+        // KS_HotKey deinit unregisters from Carbon.
+        hotKeys.removeAll()
     }
 
-    // Called from the C callback
-    nonisolated fileprivate static func handleHotKeyEvent(id: UInt32) {
-        if let action = TranslationAction.from(hotkeyID: id) {
-            debugLog("Hotkey triggered: \(action.title) (\(action.hotkeyLabel))")
-            DispatchQueue.main.async {
-                instance?.onAction?(action)
+    @discardableResult
+    public func reregister(action: TranslationAction, hotkey: HotkeyConfig?) -> RegisterError? {
+        // Drop the previous registration first so the same combo can be re-registered without a duplicate error.
+        hotKeys[action] = nil
+        return registerInternal(action: action, config: hotkey)
+    }
+
+    public func pauseAll() {
+        KS_HotKeyCenter.shared.pauseAll()
+    }
+
+    public func resumeAll() {
+        KS_HotKeyCenter.shared.resumeAll()
+    }
+
+    private func registerInternal(action: TranslationAction, config: HotkeyConfig?) -> RegisterError? {
+        guard let config else { return nil }
+        do {
+            let hotKey = try KS_HotKey(
+                carbonKeyCode: Int(config.keyCode),
+                carbonModifiers: Int(config.modifiers),
+                onKeyDown: { [weak self] in
+                    Task { @MainActor [weak self] in
+                        self?.onAction?(action)
+                    }
+                },
+                onKeyUp: {}
+            )
+            hotKeys[action] = hotKey
+            return nil
+        } catch KS_HotKey.RegisterError.carbonStatus(let status) {
+            switch status {
+            case OSStatus(eventHotKeyExistsErr): return .duplicateInProcess
+            case OSStatus(paramErr):              return .invalidParameter
+            default:                              return .unknown(status)
             }
-        } else {
-            debugLog("Unknown hotkey id: \(id)")
+        } catch {
+            return .unknown(0)
         }
     }
-}
-
-// Debug logging to stderr
-private func debugLog(_ message: String) {
-    fputs("[GGS] \(message)\n", stderr)
-}
-
-// C-compatible callback function
-private func hotKeyHandler(
-    _ nextHandler: EventHandlerCallRef?,
-    _ event: EventRef?,
-    _ userData: UnsafeMutableRawPointer?
-) -> OSStatus {
-    fputs("[GGS] hotKeyHandler callback fired\n", stderr)
-    var hotKeyID = EventHotKeyID()
-    let status = GetEventParameter(
-        event,
-        EventParamName(kEventParamDirectObject),
-        EventParamType(typeEventHotKeyID),
-        nil,
-        MemoryLayout<EventHotKeyID>.size,
-        nil,
-        &hotKeyID
-    )
-    fputs("[GGS] GetEventParameter status: \(status), id: \(hotKeyID.id)\n", stderr)
-    if status == noErr {
-        HotkeyManager.handleHotKeyEvent(id: hotKeyID.id)
-    }
-    return noErr
 }

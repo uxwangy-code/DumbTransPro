@@ -25,6 +25,8 @@ Environment:
   DUMBTRANS_INSTALL_DIR       Default install directory.
   DUMBTRANS_INSTALL_APP_NAME  Installed app bundle name.
   DUMBTRANS_SIGNING_IDENTITY  Code signing identity name.
+  DUMBTRANS_SIGNING_KEYCHAIN_PATH  Dedicated signing keychain path.
+  DUMBTRANS_SIGNING_KEYCHAIN_PASS  Dedicated signing keychain password.
 EOF
 }
 
@@ -86,17 +88,48 @@ cp "$PROJECT_DIR/Resources/MenuBarIcon.png" \
 
 echo "Signing..."
 SIGNING_IDENTITY="${DUMBTRANS_SIGNING_IDENTITY:-DumbTransPro Dev}"
+SIGNING_KEYCHAIN_PATH="${DUMBTRANS_SIGNING_KEYCHAIN_PATH:-${HOME}/Library/Keychains/dumbtrans-signing.keychain-db}"
+SIGNING_KEYCHAIN_PASS="${DUMBTRANS_SIGNING_KEYCHAIN_PASS:-dumbtrans-local-dev}"
+
+sign_adhoc() {
+    echo "  ⚠ falling back to adhoc signing."
+    echo "     TCC grants (Accessibility) will NOT persist across rebuilds."
+    echo "     Fix: run ./scripts/setup-signing.sh once, or recreate the signing keychain if it is locked with a different password."
+    codesign --force --sign - "$APP_DIR"
+}
+
+sign_with_identity() {
+    local codesign_args=(--force --deep --sign "${SIGNING_IDENTITY}")
+
+    if [[ -f "${SIGNING_KEYCHAIN_PATH}" ]] &&
+       security find-identity -p codesigning "${SIGNING_KEYCHAIN_PATH}" 2>/dev/null | grep -q "\"${SIGNING_IDENTITY}\""; then
+        echo "  → using identity: ${SIGNING_IDENTITY}"
+        echo "  → keychain: ${SIGNING_KEYCHAIN_PATH}"
+
+        if ! security unlock-keychain -p "${SIGNING_KEYCHAIN_PASS}" "${SIGNING_KEYCHAIN_PATH}" >/dev/null 2>&1; then
+            echo "  ⚠ could not unlock signing keychain non-interactively."
+            return 1
+        fi
+
+        codesign_args+=(--keychain "${SIGNING_KEYCHAIN_PATH}")
+    elif security find-identity -p codesigning 2>/dev/null | grep -q "\"${SIGNING_IDENTITY}\""; then
+        echo "  → using identity: ${SIGNING_IDENTITY}"
+    else
+        echo "  ⚠ identity '${SIGNING_IDENTITY}' not found."
+        return 1
+    fi
+
+    if ! codesign "${codesign_args[@]}" "$APP_DIR"; then
+        echo "  ⚠ signing with '${SIGNING_IDENTITY}' failed."
+        return 1
+    fi
+}
+
 # Drop -v so we accept self-signed (untrusted but present) identities.
 # codesign signs fine with them; TCC matches on the cert's designated
 # requirement, not trust chain.
-if security find-identity -p codesigning | grep -q "\"${SIGNING_IDENTITY}\""; then
-    echo "  → using identity: ${SIGNING_IDENTITY}"
-    codesign --force --deep --sign "${SIGNING_IDENTITY}" "$APP_DIR"
-else
-    echo "  ⚠ identity '${SIGNING_IDENTITY}' not found — falling back to adhoc."
-    echo "     TCC grants (Accessibility) will NOT persist across rebuilds."
-    echo "     Fix: run ./scripts/setup-signing.sh once to create the identity."
-    codesign --force --sign - "$APP_DIR"
+if ! sign_with_identity; then
+    sign_adhoc
 fi
 
 if [[ "$INSTALL_APP" == true ]]; then

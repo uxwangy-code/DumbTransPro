@@ -216,36 +216,83 @@ public struct ProviderConfig: Sendable, Equatable, Codable {
 public final class SettingsStore: ObservableObject {
     @Published public private(set) var activeProvider: AIProvider?
     @Published public var translationStyle: TranslationStyle = .natural
+    @Published public private(set) var hotkeys: [TranslationAction: HotkeyConfig?] = [:]
 
     private var configs: [AIProvider: ProviderConfig] = [:]
+    private let defaults: UserDefaults
 
-    public init() {
+    public init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
         loadSettings()
+        loadHotkeys()
     }
 
     public func loadSettings() {
         migrateLegacyIfNeeded()
 
         for provider in AIProvider.allCases {
-            let baseURL = UserDefaults.standard.string(forKey: overrideBaseURLKey(provider)) ?? ""
-            let model = UserDefaults.standard.string(forKey: overrideModelKey(provider)) ?? ""
+            let baseURL = defaults.string(forKey: overrideBaseURLKey(provider)) ?? ""
+            let model = defaults.string(forKey: overrideModelKey(provider)) ?? ""
             let apiKey = (try? KeychainHelper.load(service: keychainService, account: keychainAccount(for: provider))) ?? ""
             configs[provider] = ProviderConfig(apiKey: apiKey, baseURL: baseURL, model: model)
         }
 
-        if let raw = UserDefaults.standard.string(forKey: activeProviderKey),
+        if let raw = defaults.string(forKey: activeProviderKey),
            let provider = AIProvider(rawValue: raw) {
             activeProvider = provider
         } else {
             activeProvider = nil
         }
 
-        if let raw = UserDefaults.standard.string(forKey: translationStyleKey),
+        if let raw = defaults.string(forKey: translationStyleKey),
            let style = TranslationStyle(rawValue: raw) {
             translationStyle = style
         } else {
             translationStyle = .natural
         }
+    }
+
+    private func loadHotkeys() {
+        var map: [TranslationAction: HotkeyConfig?] = [:]
+        for action in TranslationAction.allCases {
+            map.updateValue(readHotkey(action), forKey: action)
+        }
+        hotkeys = map
+    }
+
+    private func readHotkey(_ action: TranslationAction) -> HotkeyConfig? {
+        let key = hotkeyKey(action)
+        guard defaults.object(forKey: key) != nil else {
+            return action.defaultHotkey
+        }
+        guard let data = defaults.data(forKey: key), !data.isEmpty else {
+            return nil
+        }
+        return try? JSONDecoder().decode(HotkeyConfig.self, from: data)
+    }
+
+    public func hotkey(for action: TranslationAction) -> HotkeyConfig? {
+        if let entry = hotkeys[action] { return entry }
+        return action.defaultHotkey
+    }
+
+    public func setHotkey(_ config: HotkeyConfig?, for action: TranslationAction) {
+        hotkeys.updateValue(config, forKey: action)
+        let key = hotkeyKey(action)
+        if let config, let data = try? JSONEncoder().encode(config) {
+            defaults.set(data, forKey: key)
+        } else {
+            defaults.set(Data(), forKey: key)
+        }
+    }
+
+    public func resetHotkey(for action: TranslationAction) {
+        hotkeys.updateValue(action.defaultHotkey, forKey: action)
+        defaults.removeObject(forKey: hotkeyKey(action))
+    }
+
+    private func hotkeyKey(_ action: TranslationAction) -> String {
+        "hotkey.\(action.persistenceKey)"
     }
 
     public func config(for provider: AIProvider) -> ProviderConfig {
@@ -259,12 +306,12 @@ public final class SettingsStore: ObservableObject {
 
     public func setActiveProvider(_ provider: AIProvider) {
         activeProvider = provider
-        UserDefaults.standard.set(provider.rawValue, forKey: activeProviderKey)
+        defaults.set(provider.rawValue, forKey: activeProviderKey)
     }
 
     public func setTranslationStyle(_ style: TranslationStyle) {
         translationStyle = style
-        UserDefaults.standard.set(style.rawValue, forKey: translationStyleKey)
+        defaults.set(style.rawValue, forKey: translationStyleKey)
     }
 
     public var apiKey: String {
@@ -295,8 +342,8 @@ public final class SettingsStore: ObservableObject {
         } else {
             try? KeychainHelper.save(service: keychainService, account: keychainAccount(for: provider), data: config.apiKey)
         }
-        UserDefaults.standard.set(config.baseURL, forKey: overrideBaseURLKey(provider))
-        UserDefaults.standard.set(config.model, forKey: overrideModelKey(provider))
+        defaults.set(config.baseURL, forKey: overrideBaseURLKey(provider))
+        defaults.set(config.model, forKey: overrideModelKey(provider))
     }
 
     private func keychainAccount(for provider: AIProvider) -> String {
@@ -312,7 +359,6 @@ public final class SettingsStore: ObservableObject {
     }
 
     private func migrateLegacyIfNeeded() {
-        let defaults = UserDefaults.standard
         guard defaults.string(forKey: activeProviderKey) == nil else { return }
         guard let legacyRaw = defaults.string(forKey: legacyProviderKey) else { return }
 
