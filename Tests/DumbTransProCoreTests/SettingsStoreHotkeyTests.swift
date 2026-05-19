@@ -42,11 +42,16 @@ struct SettingsStoreHotkeyTests {
     }
 
     @Test func resetHotkey_returnsToDefault() {
-        let store = SettingsStore(defaults: freshDefaults())
+        let defaults = freshDefaults()
+        let store = SettingsStore(defaults: defaults)
         let custom = HotkeyConfig(keyCode: UInt32(kVK_ANSI_T), modifiers: UInt32(cmdKey))
         store.setHotkey(custom, for: .lookup)
         store.resetHotkey(for: .lookup)
         #expect(store.hotkey(for: .lookup) == TranslationAction.lookup.defaultHotkey)
+        #expect(defaults.object(forKey: "hotkey.lookup") == nil)
+
+        let store2 = SettingsStore(defaults: defaults)
+        #expect(store2.hotkey(for: .lookup) == TranslationAction.lookup.defaultHotkey)
     }
 
     @Test func hotkeys_publishedMapReflectsAllActions() {

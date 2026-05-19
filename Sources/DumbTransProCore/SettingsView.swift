@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 public struct SettingsView: View {
@@ -116,12 +117,20 @@ public struct SettingsView: View {
             HStack(spacing: 8) {
                 Group {
                     if isAPIKeyVisible {
-                        TextField("输入\(provider.apiKeyFieldLabel)...", text: $apiKey)
+                        LiveTextField(
+                            text: $apiKey,
+                            placeholder: "输入\(provider.apiKeyFieldLabel)...",
+                            isSecure: false
+                        )
                     } else {
-                        SecureField("输入\(provider.apiKeyFieldLabel)...", text: $apiKey)
+                        LiveTextField(
+                            text: $apiKey,
+                            placeholder: "输入\(provider.apiKeyFieldLabel)...",
+                            isSecure: true
+                        )
                     }
                 }
-                .textFieldStyle(.roundedBorder)
+                .id(isAPIKeyVisible)
                 .frame(width: 370)
 
                 Button {
@@ -227,7 +236,7 @@ public struct SettingsView: View {
         let resolvedModel = (trimmedModel == provider.defaultModel) ? "" : trimmedModel
 
         let config = ProviderConfig(
-            apiKey: apiKey,
+            apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
             baseURL: resolvedBaseURL,
             model: resolvedModel
         )
@@ -236,5 +245,47 @@ public struct SettingsView: View {
         store.setTranslationStyle(translationStyle)
         onClose?()
         dismiss()
+    }
+}
+
+private struct LiveTextField: NSViewRepresentable {
+    @Binding var text: String
+    let placeholder: String
+    let isSecure: Bool
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field: NSTextField = isSecure ? NSSecureTextField() : NSTextField()
+        field.placeholderString = placeholder
+        field.stringValue = text
+        field.isBordered = true
+        field.isBezeled = true
+        field.bezelStyle = .roundedBezel
+        field.drawsBackground = true
+        field.delegate = context.coordinator
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        field.placeholderString = placeholder
+        if field.stringValue != text {
+            field.stringValue = text
+        }
+    }
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(text: $text)
+    }
+
+    final class Coordinator: NSObject, NSTextFieldDelegate {
+        private var text: Binding<String>
+
+        init(text: Binding<String>) {
+            self.text = text
+        }
+
+        func controlTextDidChange(_ notification: Notification) {
+            guard let field = notification.object as? NSTextField else { return }
+            text.wrappedValue = field.stringValue
+        }
     }
 }

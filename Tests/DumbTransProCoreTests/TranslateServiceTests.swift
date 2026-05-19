@@ -7,6 +7,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var mockStatusCode: Int = 200
     nonisolated(unsafe) static var mockError: Error?
     nonisolated(unsafe) static var lastRequestBody: Data?
+    nonisolated(unsafe) static var lastAuthorizationHeader: String?
     nonisolated(unsafe) static var allRequestBodies: [Data] = []
     nonisolated(unsafe) static var responseQueue: [(data: Data, status: Int)] = []
 
@@ -15,6 +16,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
         mockStatusCode = 200
         mockError = nil
         lastRequestBody = nil
+        lastAuthorizationHeader = nil
         allRequestBodies = []
         responseQueue = []
     }
@@ -25,6 +27,7 @@ final class MockURLProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         let body = request.httpBody ?? Self.readBodyStream(from: request)
         MockURLProtocol.lastRequestBody = body
+        MockURLProtocol.lastAuthorizationHeader = request.value(forHTTPHeaderField: "Authorization")
         if let body { MockURLProtocol.allRequestBodies.append(body) }
         if let error = MockURLProtocol.mockError {
             client?.urlProtocol(self, didFailWithError: error)
@@ -149,6 +152,7 @@ struct TranslateServiceTests {
     }
 
     @Test func apiErrorReturnsError() async {
+        MockURLProtocol.reset()
         MockURLProtocol.mockStatusCode = 401
         MockURLProtocol.mockResponseData = """
         {"error":{"message":"Invalid API key"}}
@@ -161,6 +165,43 @@ struct TranslateServiceTests {
         } catch {
             #expect(error is TranslateError)
         }
+    }
+
+    @Test func topLevelAPIErrorMessageIsPreserved() async {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockStatusCode = 401
+        MockURLProtocol.mockResponseData = """
+        {"code":401,"message":"invalid app id"}
+        """.data(using: .utf8)
+
+        let service = TranslateService(apiKey: "bad-key", session: makeTestSession())
+        do {
+            _ = try await service.translate("测试", style: .plain)
+            #expect(Bool(false), "Should have thrown")
+        } catch let error as TranslateError {
+            if case .apiError(let statusCode, let message) = error {
+                #expect(statusCode == 401)
+                #expect(message == "invalid app id")
+            } else {
+                Issue.record("expected apiError, got \(error)")
+            }
+        } catch {
+            Issue.record("expected TranslateError, got \(error)")
+        }
+    }
+
+    @Test func trimsAuthorizationHeaderWhitespace() async throws {
+        MockURLProtocol.reset()
+        let responseJSON = """
+        {"choices":[{"message":{"content":"study hard"}}]}
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "  app-id-with-newline\n", session: makeTestSession())
+        _ = try await service.translate("好好学习", style: .natural)
+
+        #expect(MockURLProtocol.lastAuthorizationHeader == "Bearer app-id-with-newline")
     }
 
     @Test func responseWithWhitespace() async throws {

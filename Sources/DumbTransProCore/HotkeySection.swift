@@ -30,6 +30,7 @@ public struct HotkeySection: View {
                         defaultHotkey: action.defaultHotkey,
                         detectConflict: { detectConflict($0, for: action) },
                         onCommit: { commit($0, for: action) },
+                        onResetToDefault: { resetToDefault(for: action) },
                         onRecordingStarted: { hotkeyManager.pauseAll() },
                         onRecordingEnded:   { hotkeyManager.resumeAll() }
                     )
@@ -72,6 +73,9 @@ public struct HotkeySection: View {
 
     private func commit(_ config: HotkeyConfig?, for action: TranslationAction) {
         store.setHotkey(config, for: action)
-        _ = hotkeyManager.reregister(action: action, hotkey: config)
+    }
+
+    private func resetToDefault(for action: TranslationAction) {
+        store.resetHotkey(for: action)
     }
 }

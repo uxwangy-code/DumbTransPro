@@ -133,7 +133,11 @@ public final class TranslateService: Sendable {
         let url = URL(string: "\(baseURL)/chat/completions")!
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedAPIKey.isEmpty else {
+            throw TranslateError.noAPIKey
+        }
+        request.setValue("Bearer \(trimmedAPIKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         var messages: [[String: Any]] = [["role": "system", "content": system]]
@@ -192,12 +196,34 @@ public final class TranslateService: Sendable {
     }
 
     private func parseErrorMessage(from data: Data) -> String {
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let error = json["error"] as? [String: Any],
-              let message = error["message"] as? String else {
-            return "Unknown error"
+        if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+            if let error = json["error"] as? [String: Any] {
+                if let message = firstString(in: error, keys: ["message", "msg", "error_description", "detail"]) {
+                    return message
+                }
+            }
+            if let message = firstString(in: json, keys: ["message", "msg", "error_description", "detail", "error"]) {
+                return message
+            }
         }
-        return message
+
+        if let raw = String(data: data, encoding: .utf8) {
+            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmed.isEmpty {
+                return String(trimmed.prefix(500))
+            }
+        }
+        return "Unknown error"
+    }
+
+    private func firstString(in json: [String: Any], keys: [String]) -> String? {
+        for key in keys {
+            if let value = json[key] as? String,
+               !value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return value
+            }
+        }
+        return nil
     }
 
     private func send(_ request: URLRequest) async throws -> (Data, URLResponse) {

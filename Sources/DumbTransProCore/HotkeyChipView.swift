@@ -10,6 +10,7 @@ final class HotkeyChipCoordinator: ObservableObject {
     let defaultHotkey: HotkeyConfig
     var detectConflict: (HotkeyConfig) -> ConflictKind
     var onCommit: (HotkeyConfig?) -> Void
+    var onResetToDefault: () -> Void
     var onRecordingStarted: () -> Void
     var onRecordingEnded: () -> Void
 
@@ -18,6 +19,7 @@ final class HotkeyChipCoordinator: ObservableObject {
         defaultHotkey: HotkeyConfig,
         detectConflict: @escaping (HotkeyConfig) -> ConflictKind,
         onCommit: @escaping (HotkeyConfig?) -> Void,
+        onResetToDefault: @escaping () -> Void,
         onRecordingStarted: @escaping () -> Void,
         onRecordingEnded: @escaping () -> Void
     ) {
@@ -25,6 +27,7 @@ final class HotkeyChipCoordinator: ObservableObject {
         self.defaultHotkey = defaultHotkey
         self.detectConflict = detectConflict
         self.onCommit = onCommit
+        self.onResetToDefault = onResetToDefault
         self.onRecordingStarted = onRecordingStarted
         self.onRecordingEnded = onRecordingEnded
     }
@@ -52,7 +55,7 @@ final class HotkeyChipCoordinator: ObservableObject {
         case .pauseAllHotkeys: onRecordingStarted()
         case .resumeAllHotkeys: onRecordingEnded()
         case .commit(let cfg): onCommit(cfg)
-        case .commitDefault:   onCommit(defaultHotkey)
+        case .commitDefault:   onResetToDefault()
         case .beep: NSSound.beep()
         case .moveFocusToNextResponder:
             NSApp.keyWindow?.selectNextKeyView(nil)
@@ -121,6 +124,7 @@ public struct HotkeyChipView: View {
         defaultHotkey: HotkeyConfig,
         detectConflict: @escaping (HotkeyConfig) -> ConflictKind,
         onCommit: @escaping (HotkeyConfig?) -> Void,
+        onResetToDefault: @escaping () -> Void,
         onRecordingStarted: @escaping () -> Void,
         onRecordingEnded: @escaping () -> Void
     ) {
@@ -130,6 +134,7 @@ public struct HotkeyChipView: View {
             defaultHotkey: defaultHotkey,
             detectConflict: detectConflict,
             onCommit: onCommit,
+            onResetToDefault: onResetToDefault,
             onRecordingStarted: onRecordingStarted,
             onRecordingEnded: onRecordingEnded
         ))
