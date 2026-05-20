@@ -151,6 +151,85 @@ struct TranslateServiceTests {
         #expect(result == "diligent-pursuit-of-erudition")
     }
 
+    @Test func naturalProseTranslationDoesNotApplyKebabCase() async throws {
+        MockURLProtocol.reset()
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "This is a collection of transition effects that you can copy directly into any project."
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("这是一个可以直接复制到任何项目中的过渡效果集合。", style: .natural)
+        #expect(result == "This is a collection of transition effects that you can copy directly into any project.")
+        #expect(try requestPrompt().contains("不要改写成文件名或标题"))
+    }
+
+    @Test func longPhraseTranslationDoesNotApplyKebabCase() async throws {
+        MockURLProtocol.reset()
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "Support any frames and action segments without hardcoding nine frames."
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("支持任意帧和动作分段且不硬编码九帧", style: .natural)
+        #expect(result == "Support any frames and action segments without hardcoding nine frames.")
+    }
+
+    @Test func plainProseUsesSimpleProsePrompt() async throws {
+        MockURLProtocol.reset()
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "A beautiful page makes users want to keep using it."
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("漂亮的页面会让用户更想继续使用。", style: .plain)
+        #expect(result == "A beautiful page makes users want to keep using it.")
+        #expect(try requestPrompt().contains("简单、直白、口语一点"))
+    }
+
+    @Test func elegantProseUsesFormalProsePrompt() async throws {
+        MockURLProtocol.reset()
+        let responseJSON = """
+        {
+          "choices": [{
+            "message": {
+              "content": "This capability reduces repetitive user effort."
+            }
+          }]
+        }
+        """
+        MockURLProtocol.mockResponseData = responseJSON.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translate("这个功能可以减少用户重复操作。", style: .elegant)
+        #expect(result == "This capability reduces repetitive user effort.")
+        #expect(try requestPrompt().contains("学术感更强"))
+    }
+
     @Test func apiErrorReturnsError() async {
         MockURLProtocol.reset()
         MockURLProtocol.mockStatusCode = 401

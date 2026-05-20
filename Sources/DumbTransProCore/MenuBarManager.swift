@@ -13,6 +13,11 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private let settingsStore = SettingsStore()
     private let lookupPanelManager = LookupPanelManager()
     private var settingsWindow: NSWindow?
+    private var toastPanel: NSPanel?
+    private var toastDismissTask: Task<Void, Never>?
+    private var loadingToastDelayTask: Task<Void, Never>?
+    private var loadingToastShownAt: Date?
+    private var activeToastKind: ToastKind?
     private var isTranslating = false
     private var spinnerTimer: Timer?
     private let spinnerFrames: [String] = ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"]
@@ -20,6 +25,11 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private var hasAccessibility = false
     private var accessibilityWatcher: Timer?
     private var cancellables: Set<AnyCancellable> = []
+
+    private enum ToastKind {
+        case failure
+        case loading
+    }
 
     public override init() {
         super.init()
@@ -269,6 +279,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
 
         isTranslating = true
         startSpinner()
+        scheduleLoadingToast()
         updateMenu()
 
         Task { @MainActor in
@@ -276,6 +287,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             defer {
                 isTranslating = false
                 stopSpinner()
+                finishLoadingToast()
                 updateMenu()
                 writeDebug("handleRewriteToEnglish complete (\(style.title))")
             }
@@ -356,20 +368,220 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     private func showNotification(title: String, message: String) {
+        fputs("[GGS] \(title): \(message)\n", stderr)
+        cancelLoadingToast(closeImmediately: true)
+        flashStatusFailure()
+        showFailureToast(title: title, message: message)
+    }
+
+    private func flashStatusFailure() {
         guard let button = statusItem?.button else { return }
-        let savedImage = button.image
-        let savedTitle = button.title
         button.image = nil
         button.title = "✗"
-        fputs("[GGS] \(title): \(message)\n", stderr)
         Task { @MainActor [weak self] in
             try? await Task.sleep(for: .seconds(2))
             guard let self, let button = self.statusItem?.button else { return }
-            if savedImage != nil {
+            if !self.isTranslating {
                 self.applyDefaultIcon(to: button)
-            } else {
-                button.title = savedTitle
             }
+        }
+    }
+
+    private func showFailureToast(title: String, message: String) {
+        toastDismissTask?.cancel()
+
+        let toastView = FailureToastView(title: title, message: message)
+        let panel = showToastPanel(rootView: toastView, width: 320, minHeight: 76, maxHeight: 150)
+        activeToastKind = .failure
+
+        toastDismissTask = Task { @MainActor [weak self, weak panel] in
+            try? await Task.sleep(for: .milliseconds(2400))
+            guard !Task.isCancelled, let self, let panel, self.toastPanel === panel else { return }
+            panel.close()
+            self.toastPanel = nil
+            self.toastDismissTask = nil
+            self.activeToastKind = nil
+        }
+    }
+
+    private func scheduleLoadingToast() {
+        cancelLoadingToast(closeImmediately: true)
+        loadingToastDelayTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(2))
+            guard !Task.isCancelled, let self, self.isTranslating else { return }
+            self.showLoadingToast()
+        }
+    }
+
+    private func showLoadingToast() {
+        toastDismissTask?.cancel()
+        let toastView = LoadingToastView()
+        _ = showToastPanel(rootView: toastView, width: 196, minHeight: 52, maxHeight: 72)
+        activeToastKind = .loading
+        loadingToastShownAt = Date()
+    }
+
+    private func finishLoadingToast() {
+        loadingToastDelayTask?.cancel()
+        loadingToastDelayTask = nil
+
+        guard activeToastKind == .loading else { return }
+        let elapsed = loadingToastShownAt.map { Date().timeIntervalSince($0) } ?? 0
+        let remaining = max(0, 1.0 - elapsed)
+        if remaining <= 0 {
+            closeLoadingToast()
+        } else {
+            toastDismissTask?.cancel()
+            toastDismissTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(Int(remaining * 1000)))
+                guard !Task.isCancelled else { return }
+                self?.closeLoadingToast()
+            }
+        }
+    }
+
+    private func cancelLoadingToast(closeImmediately: Bool) {
+        loadingToastDelayTask?.cancel()
+        loadingToastDelayTask = nil
+        loadingToastShownAt = nil
+        guard closeImmediately, activeToastKind == .loading else { return }
+        toastDismissTask?.cancel()
+        closeLoadingToast()
+    }
+
+    private func closeLoadingToast() {
+        guard activeToastKind == .loading else { return }
+        toastPanel?.close()
+        toastPanel = nil
+        toastDismissTask = nil
+        activeToastKind = nil
+        loadingToastShownAt = nil
+    }
+
+    private func showToastPanel<Content: View>(
+        rootView: Content,
+        width: CGFloat,
+        minHeight: CGFloat,
+        maxHeight: CGFloat
+    ) -> NSPanel {
+        toastPanel?.close()
+
+        let hostingView = NSHostingView(rootView: rootView)
+        hostingView.frame = NSRect(x: 0, y: 0, width: width, height: 1)
+        let fittingSize = hostingView.fittingSize
+        let panelSize = NSSize(width: width, height: min(max(fittingSize.height, minHeight), maxHeight))
+
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: panelSize),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.backgroundColor = .clear
+        panel.isOpaque = false
+        panel.hasShadow = true
+        panel.ignoresMouseEvents = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .transient]
+        hostingView.frame = NSRect(origin: .zero, size: panelSize)
+        panel.contentView = hostingView
+        panel.setFrameOrigin(toastOrigin(for: panelSize))
+        panel.orderFront(nil)
+        toastPanel = panel
+        return panel
+    }
+
+    private func toastOrigin(for size: NSSize) -> NSPoint {
+        let mouse = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+        let visibleFrame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let margin: CGFloat = 16
+
+        let preferredX = mouse.x + margin
+        let preferredY = mouse.y - size.height - margin
+        let maxX = visibleFrame.maxX - size.width - margin
+        let minX = visibleFrame.minX + margin
+        let maxY = visibleFrame.maxY - size.height - margin
+        let minY = visibleFrame.minY + margin
+
+        return NSPoint(
+            x: min(max(preferredX, minX), maxX),
+            y: min(max(preferredY, minY), maxY)
+        )
+    }
+}
+
+private struct FailureToastView: View {
+    let title: String
+    let message: String
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "exclamationmark.triangle.fill")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 18, height: 20)
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title)
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text(message)
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.8))
+                    .lineLimit(3)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 320, alignment: .leading)
+        .background(ToastBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
+        )
+    }
+}
+
+private struct LoadingToastView: View {
+    private let frames: [String] = ["⣾","⣽","⣻","⢿","⡿","⣟","⣯","⣷"]
+
+    var body: some View {
+        HStack(spacing: 10) {
+            TimelineView(.animation(minimumInterval: 0.1)) { context in
+                let index = Int(context.date.timeIntervalSinceReferenceDate * 10) % frames.count
+                Text(frames[index])
+                    .font(.system(size: 18, weight: .semibold, design: .monospaced))
+                    .foregroundStyle(.white)
+                    .frame(width: 18, height: 18)
+            }
+            Text("转写中，请稍等...")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(.white)
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 12)
+        .frame(width: 212, alignment: .leading)
+        .background(ToastBackground())
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.16), lineWidth: 0.5)
+        )
+    }
+
+}
+
+private struct ToastBackground: View {
+    var body: some View {
+        ZStack {
+            Rectangle()
+                .fill(.ultraThinMaterial)
+            Color.black.opacity(0.7)
         }
     }
 }

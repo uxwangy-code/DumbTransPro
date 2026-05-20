@@ -1,9 +1,12 @@
+import AppKit
 import SwiftUI
 
 struct LookupPanelView: View {
     @ObservedObject var state: LookupPanelState
 
-    private let collapseThreshold = 100
+    private static let collapsedOriginalLineLimit = 2
+    private static let originalHorizontalPadding: CGFloat = 14
+    private static let originalTextFont = NSFont.systemFont(ofSize: 12)
     static let panelWidth: CGFloat = 480
     static let maxOriginalHeight: CGFloat = 200
     static let maxTranslationHeight: CGFloat = 400
@@ -11,23 +14,43 @@ struct LookupPanelView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             headerBar
-            originalTextSection
-            Divider()
-            translationSection
-            footerBar
+            contentArea
         }
         .frame(width: Self.panelWidth)
         .fixedSize(horizontal: false, vertical: true)
-        .background(.regularMaterial)
+        .background(Color(nsColor: .controlColor))
         .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(Color(nsColor: .separatorColor).opacity(0.35), lineWidth: 0.5)
+        )
+    }
+
+    private var contentArea: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            originalTextSection
+            insetDivider
+            translationSection
+            footerBar
+        }
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.96))
     }
 
     private var headerBar: some View {
-        HStack(alignment: .center) {
-            Text("划词翻译")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            Spacer()
+        HStack(alignment: .center, spacing: 8) {
+            ZStack(alignment: .leading) {
+                WindowDragHandle()
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                HStack {
+                    Text("划词翻译")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer(minLength: 0)
+                }
+                .allowsHitTesting(false)
+            }
+            .frame(maxWidth: .infinity, minHeight: 18)
+
             Button {
                 state.onClose?()
             } label: {
@@ -43,14 +66,27 @@ struct LookupPanelView: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 8)
+        .background(Color(nsColor: .controlColor))
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color(nsColor: .separatorColor).opacity(0.7))
+                .frame(height: 1)
+        }
+    }
+
+    private var insetDivider: some View {
+        Rectangle()
+            .fill(Color(nsColor: .separatorColor).opacity(0.65))
+            .frame(height: 1)
+            .padding(.horizontal, 18)
     }
 
     private var originalTextSection: some View {
-        let needsCollapse = state.originalText.count > collapseThreshold
+        let needsCollapse = originalTextNeedsCollapse
         return VStack(alignment: .leading, spacing: 4) {
             if needsCollapse && !state.isOriginalExpanded {
                 Text(state.originalText)
-                    .lineLimit(2)
+                    .lineLimit(Self.collapsedOriginalLineLimit)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -83,8 +119,34 @@ struct LookupPanelView: View {
                 }
             }
         }
-        .padding(.horizontal, 14)
+        .padding(.horizontal, Self.originalHorizontalPadding)
+        .padding(.top, 12)
         .padding(.bottom, 10)
+    }
+
+    private var originalTextNeedsCollapse: Bool {
+        Self.textExceedsLineLimit(
+            state.originalText,
+            width: Self.panelWidth - Self.originalHorizontalPadding * 2,
+            lineLimit: Self.collapsedOriginalLineLimit
+        )
+    }
+
+    private static func textExceedsLineLimit(_ text: String, width: CGFloat, lineLimit: Int) -> Bool {
+        let lineHeight = originalTextFont.ascender - originalTextFont.descender + originalTextFont.leading
+        let maxCollapsedHeight = ceil(lineHeight * CGFloat(lineLimit))
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineBreakMode = .byWordWrapping
+        let measuredRect = (text as NSString).boundingRect(
+            with: NSSize(width: width, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            attributes: [
+                .font: originalTextFont,
+                .paragraphStyle: paragraphStyle
+            ]
+        )
+
+        return ceil(measuredRect.height) > maxCollapsedHeight + 1
     }
 
     @ViewBuilder
@@ -143,5 +205,19 @@ struct LookupPanelView: View {
             .padding(.horizontal, 14)
             .padding(.bottom, 10)
         }
+    }
+}
+
+private struct WindowDragHandle: NSViewRepresentable {
+    func makeNSView(context: Context) -> DragHandleView {
+        DragHandleView()
+    }
+
+    func updateNSView(_ nsView: DragHandleView, context: Context) {}
+}
+
+private final class DragHandleView: NSView {
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
     }
 }
