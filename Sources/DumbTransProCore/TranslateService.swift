@@ -47,6 +47,15 @@ public final class TranslateService: Sendable {
     // MARK: - Public API
 
     public func translate(_ text: String, style: TranslationStyle = .natural) async throws -> String {
+        switch TextFormatter.rewriteInputKind(text) {
+        case .termLike:
+            return try await translateTerm(text, style: style)
+        case .proseLike:
+            return try await translateProse(text, style: style)
+        }
+    }
+
+    private func translateTerm(_ text: String, style: TranslationStyle) async throws -> String {
         let raw = try await chatRequest(
             system: style.filenameSystem,
             examples: style.filenameExamples,
@@ -67,6 +76,29 @@ public final class TranslateService: Sendable {
             return TextFormatter.toKebabCase(natural)
         }
         return TextFormatter.toKebabCase(raw)
+    }
+
+    private func translateProse(_ text: String, style: TranslationStyle) async throws -> String {
+        let raw = try await chatRequest(
+            system: style.proseSystem,
+            examples: style.proseExamples,
+            userText: text,
+            timeout: 30,
+            maxTokens: 2000
+        )
+
+        if style != .natural && Self.isLikelyLeakedProse(output: raw) {
+            let natural = try await chatRequest(
+                system: TranslationStyle.natural.proseSystem,
+                examples: TranslationStyle.natural.proseExamples,
+                userText: text,
+                timeout: 30,
+                maxTokens: 2000
+            )
+            return Self.cleanProseTranslation(natural)
+        }
+
+        return Self.cleanProseTranslation(raw)
     }
 
     public func lookup(_ text: String, style: TranslationStyle = .natural) async throws -> LookupResult {
@@ -119,6 +151,17 @@ public final class TranslateService: Sendable {
         // Unreasonably long for a filename
         if trimmed.count > 120 { return true }
         return false
+    }
+
+    static func isLikelyLeakedProse(output: String) -> Bool {
+        let trimmed = output.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty { return true }
+        if trimmed.contains("→") || trimmed.contains(" -> ") { return true }
+        return false
+    }
+
+    private static func cleanProseTranslation(_ output: String) -> String {
+        output.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     // MARK: - HTTP

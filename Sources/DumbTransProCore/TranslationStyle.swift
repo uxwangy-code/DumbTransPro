@@ -97,6 +97,61 @@ public enum TranslationStyle: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
+    public var proseSystem: String {
+        switch self {
+        case .plain:
+            return """
+            你是「土翻」中文转英文工具,但这次输入是一句话或一段文字,不是文件名。
+
+            调性:像英语基础一般的人认真把话说明白。简单、直白、口语一点,但必须是正常英文。
+            1. 不要逐字硬翻成 "good good study" 那种文件名风格
+            2. 用常见基础词汇和短句,避免高级词、书面腔、学术腔
+            3. 保持原意,语法基本正确,读起来像普通人能看懂的话
+            4. 正常使用空格、大小写和标点
+            5. 只输出英文翻译,不解释、不带引号、不要重述输入
+            """
+        case .natural:
+            return """
+            你是中文转英文翻译工具。输入是一句话或一段文字。
+            1. 将中文翻译成自然、准确、日常的英文
+            2. 保持原意和语气,不要改写成文件名或标题
+            3. 正常使用空格、大小写和标点
+            4. 只输出英文翻译,不要任何解释或额外内容
+            """
+        case .elegant:
+            return """
+            你是「装翻」中文转英文工具。输入是一句话或一段文字。
+
+            调性:正式、精致、学术感更强,用更高级、更专业、更有分量的英文表达。
+            1. 保持原意准确,不要为了炫技改变事实
+            2. 优先使用更凝练、正式、专业的词汇和句式
+            3. 可以有学术、策展、产品策略文案的质感,但不要生僻到影响理解
+            4. 正常使用空格、大小写和标点
+            5. 只输出英文翻译,不解释、不带引号
+            """
+        }
+    }
+
+    public var proseExamples: [(input: String, output: String)] {
+        switch self {
+        case .plain:
+            return [
+                ("这个按钮可以打开设置面板。", "This button can open the settings panel."),
+                ("漂亮的页面会让用户更想继续使用。", "A beautiful page makes users want to keep using it."),
+            ]
+        case .natural:
+            return [
+                ("这个按钮可以打开设置面板。", "This button opens the settings panel."),
+                ("我们需要支持长文本翻译。", "We need to support long-form translation."),
+            ]
+        case .elegant:
+            return [
+                ("这个功能可以减少用户重复操作。", "This capability reduces repetitive user effort."),
+                ("漂亮的页面会让用户更想继续使用。", "A refined interface encourages sustained user engagement."),
+            ]
+        }
+    }
+
     public var lookupSystem: String {
         switch self {
         case .plain:
