@@ -2,6 +2,8 @@ import AppKit
 import SwiftUI
 
 public struct SettingsView: View {
+    private static let fridayTenantLookupURL = URL(string: "https://friday.sankuai.com/budget/serviceManage")!
+
     @ObservedObject var store: SettingsStore
     let hotkeyManager: HotkeyManager
     @Environment(\.dismiss) private var dismiss
@@ -144,9 +146,23 @@ public struct SettingsView: View {
                 .help(isAPIKeyVisible ? "隐藏" : "显示")
             }
             if let hint = provider.apiKeyHint {
-                Text(hint)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text(hint)
+                        .foregroundStyle(.secondary)
+                    if provider == .friday {
+                        Link(destination: Self.fridayTenantLookupURL) {
+                            HStack(spacing: 2) {
+                                Text("前往查找")
+                                Image(systemName: "arrow.up.right")
+                                    .font(.system(size: 9, weight: .semibold))
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                        .help("打开 Friday 控制台")
+                    }
+                }
+                .font(.caption)
             }
         }
     }
