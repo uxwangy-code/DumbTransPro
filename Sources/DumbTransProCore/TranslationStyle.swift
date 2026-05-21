@@ -225,7 +225,7 @@ public enum TranslationAction: CaseIterable, Sendable {
 
     public var title: String {
         switch self {
-        case .rewriteToEnglish: return "中文转英文"
+        case .rewriteToEnglish: return "用中文写英文"
         case .lookup: return "划词翻译"
         }
     }
