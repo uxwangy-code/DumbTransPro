@@ -1,0 +1,22 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>DumbTransPro</title>
+        <item>
+            <title>1.2.0</title>
+            <pubDate>Thu, 21 May 2026 10:51:30 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>120</sparkle:version>
+            <sparkle:shortVersionString>1.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.2.0
+
+- 新增菜单栏检查更新功能。
+- 设置菜单补充 API、快捷键和翻译模式提示。
+- 改进发布打包流程，支持 Sparkle 更新签名和 appcast 生成。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.2.0/DumbTransPro-1.2.0.zip" length="3554564" type="application/octet-stream" sparkle:edSignature="z9bAKYuQRtGQQgM6q2E4jlAWvLpANq7NTCZx7h1ksc1KEhL6O79XlnWjw/L7rdXV6bTkPkg2hN5RI1GE+e7oAw=="/>
+        </item>
+    </channel>
+</rss>

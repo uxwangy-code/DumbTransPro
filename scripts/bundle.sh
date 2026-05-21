@@ -27,6 +27,11 @@ Environment:
   DUMBTRANS_SIGNING_IDENTITY  Code signing identity name.
   DUMBTRANS_SIGNING_KEYCHAIN_PATH  Dedicated signing keychain path.
   DUMBTRANS_SIGNING_KEYCHAIN_PASS  Dedicated signing keychain password.
+  DUMBTRANS_VERSION           CFBundleShortVersionString override.
+  DUMBTRANS_BUILD             CFBundleVersion override.
+  DUMBTRANS_SPARKLE_FEED_URL  Sparkle appcast URL override.
+  DUMBTRANS_SPARKLE_KEY_ACCOUNT  Keychain account for Sparkle EdDSA key.
+  DUMBTRANS_SPARKLE_PUBLIC_ED_KEY  Sparkle EdDSA public key for update verification.
 EOF
 }
 
@@ -68,6 +73,91 @@ register_with_launch_services() {
     fi
 }
 
+quit_running_app() {
+    local bundle_id="com.whimsycode.dumbtrans-pro"
+    local executable_name="DumbTransPro"
+
+    if ! pgrep -x "$executable_name" >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "Stopping running ${executable_name} before relaunch..."
+    osascript -e "tell application id \"${bundle_id}\" to quit" >/dev/null 2>&1 || true
+
+    for _ in {1..15}; do
+        if ! pgrep -x "$executable_name" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 0.2
+    done
+
+    echo "  → graceful quit timed out; sending terminate signal."
+    pkill -x "$executable_name" >/dev/null 2>&1 || true
+}
+
+set_plist_string() {
+    local key="$1"
+    local value="$2"
+    local plist="$CONTENTS_DIR/Info.plist"
+    local plistbuddy="/usr/libexec/PlistBuddy"
+
+    if [[ -z "$value" ]]; then
+        return 0
+    fi
+
+    if "$plistbuddy" -c "Print :${key}" "$plist" >/dev/null 2>&1; then
+        "$plistbuddy" -c "Set :${key} ${value}" "$plist"
+    else
+        "$plistbuddy" -c "Add :${key} string ${value}" "$plist"
+    fi
+}
+
+configure_info_plist() {
+    set_plist_string "CFBundleShortVersionString" "${DUMBTRANS_VERSION:-}"
+    set_plist_string "CFBundleVersion" "${DUMBTRANS_BUILD:-}"
+    set_plist_string "SUFeedURL" "${DUMBTRANS_SPARKLE_FEED_URL:-}"
+
+    local public_key="${DUMBTRANS_SPARKLE_PUBLIC_ED_KEY:-}"
+    local sparkle_account="${DUMBTRANS_SPARKLE_KEY_ACCOUNT:-com.whimsycode.dumbtrans-pro}"
+    local generate_keys="$PROJECT_DIR/.build/artifacts/sparkle/Sparkle/bin/generate_keys"
+
+    if [[ -z "$public_key" && -x "$generate_keys" ]]; then
+        public_key="$("$generate_keys" --account "$sparkle_account" -p 2>/dev/null || true)"
+    fi
+
+    if [[ -n "$public_key" ]]; then
+        set_plist_string "SUPublicEDKey" "$public_key"
+    else
+        echo "  ⚠ Sparkle public key is not configured; update checks will be disabled in this build."
+        echo "     Fix: run ./scripts/setup-sparkle.sh once, or set DUMBTRANS_SPARKLE_PUBLIC_ED_KEY."
+    fi
+}
+
+copy_sparkle_framework() {
+    local framework_source
+    framework_source="$(find "$PROJECT_DIR/.build/artifacts" -path "*/macos-arm64_x86_64/Sparkle.framework" -type d 2>/dev/null | head -n 1)"
+
+    if [[ -z "$framework_source" ]]; then
+        echo "  ✗ Sparkle.framework not found. Try: swift package resolve" >&2
+        exit 1
+    fi
+
+    mkdir -p "$CONTENTS_DIR/Frameworks"
+    rm -rf "$CONTENTS_DIR/Frameworks/Sparkle.framework"
+    ditto "$framework_source" "$CONTENTS_DIR/Frameworks/Sparkle.framework"
+}
+
+add_bundle_rpath() {
+    local executable="$MACOS_DIR/DumbTransPro"
+    local rpath="@executable_path/../Frameworks"
+
+    if otool -l "$executable" | grep -q "$rpath"; then
+        return 0
+    fi
+
+    install_name_tool -add_rpath "$rpath" "$executable"
+}
+
 echo "Building..."
 cd "$PROJECT_DIR"
 swift build -c release
@@ -78,6 +168,7 @@ mkdir -p "$MACOS_DIR"
 
 cp "$BUILD_DIR/DumbTransPro" "$MACOS_DIR/"
 cp "$PROJECT_DIR/Resources/Info.plist" "$CONTENTS_DIR/"
+configure_info_plist
 
 mkdir -p "$CONTENTS_DIR/Resources"
 cp "$PROJECT_DIR/Resources/AppIcon.icns" "$CONTENTS_DIR/Resources/"
@@ -85,6 +176,8 @@ cp "$PROJECT_DIR/Resources/MenuBarIcon.png" \
    "$PROJECT_DIR/Resources/MenuBarIcon@2x.png" \
    "$PROJECT_DIR/Resources/MenuBarIcon@3x.png" \
    "$CONTENTS_DIR/Resources/"
+copy_sparkle_framework
+add_bundle_rpath
 
 echo "Signing..."
 SIGNING_IDENTITY="${DUMBTRANS_SIGNING_IDENTITY:-DumbTransPro Dev}"
@@ -143,6 +236,10 @@ if [[ "$INSTALL_APP" == true ]]; then
     fi
 
     INSTALL_APP_DIR="$INSTALL_DIR/$INSTALL_APP_NAME"
+    if [[ "$LAUNCH_APP" == true ]]; then
+        quit_running_app
+    fi
+
     rm -rf "$INSTALL_APP_DIR"
     ditto "$APP_DIR" "$INSTALL_APP_DIR"
     register_with_launch_services "$INSTALL_APP_DIR"

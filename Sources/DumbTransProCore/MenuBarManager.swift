@@ -12,6 +12,13 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private let hotkeyManager = HotkeyManager()
     private let settingsStore = SettingsStore()
     private let lookupPanelManager = LookupPanelManager()
+    private lazy var updateManager: UpdateManager = {
+        let manager = UpdateManager()
+        manager.onStateChange = { [weak self] in
+            self?.updateMenu()
+        }
+        return manager
+    }()
     private var settingsWindow: NSWindow?
     private var toastPanel: NSPanel?
     private var toastDismissTask: Task<Void, Never>?
@@ -190,10 +197,15 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         accessibility.target = self
         menu.addItem(accessibility)
 
-        let settings = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
+        let settings = NSMenuItem(title: "设置（配置API；更改快捷键、翻译模式）", action: #selector(openSettings), keyEquivalent: ",")
+        settings.attributedTitle = makeSettingsTitle()
         settings.image = menuSymbol("gearshape")
         settings.target = self
         menu.addItem(settings)
+
+        let update = NSMenuItem(title: updateManager.menuTitle, action: nil, keyEquivalent: "")
+        updateManager.configureMenuItem(update)
+        menu.addItem(update)
 
         let quit = NSMenuItem(title: "退出", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         quit.image = menuSymbol("power")
@@ -223,6 +235,19 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         )
         attributed.append(NSAttributedString(
             string: suffix,
+            attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
+        ))
+        return attributed
+    }
+
+    private func makeSettingsTitle() -> NSAttributedString {
+        let font = NSFont.menuFont(ofSize: 0)
+        let attributed = NSMutableAttributedString(
+            string: "设置",
+            attributes: [.font: font, .foregroundColor: NSColor.labelColor]
+        )
+        attributed.append(NSAttributedString(
+            string: "（配置API；更改快捷键、翻译模式）",
             attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor]
         ))
         return attributed

@@ -6,12 +6,18 @@
     <string>DumbTransPro</string>
     <key>CFBundleDisplayName</key>
     <string>瞎翻 Pro</string>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>zh_CN</string>
     <key>CFBundleIdentifier</key>
     <string>com.whimsycode.dumbtrans-pro</string>
+    <key>CFBundleLocalizations</key>
+    <array>
+        <string>zh_CN</string>
+    </array>
     <key>CFBundleVersion</key>
-    <string>1.0</string>
+    <string>120</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0</string>
+    <string>1.2.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>CFBundleExecutable</key>
@@ -22,5 +28,13 @@
     <string>AppIcon</string>
     <key>LSApplicationCategoryType</key>
     <string>public.app-category.utilities</string>
+    <key>SUFeedURL</key>
+    <string>https://uxwangy-code.github.io/DumbTransPro/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>0uY9oBbAAHV/DYDNLuq3wL0nupchY4WmMRogZMXAfy8=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <false/>
 </dict>
 </plist>
