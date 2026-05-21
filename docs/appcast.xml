@@ -3,6 +3,21 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.2.1</title>
+            <pubDate>Thu, 21 May 2026 20:08:50 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>121</sparkle:version>
+            <sparkle:shortVersionString>1.2.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.2.1
+
+- 菜单栏动作「中文转英文」改为「用中文写英文」，表达更贴近写作场景。
+- 设置面板补充写作/阅读场景说明，方便理解两个快捷键的使用方式。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.2.1/DumbTransPro-1.2.1.zip" length="3554424" type="application/octet-stream" sparkle:edSignature="ZcGBZiWDp679RgQ+rmatVmhGCS91Ojd/9VMj/ugszjVdOS1MXmyGeqneI6+99vXcxuFr0zdd23FiZHLlyePzAg=="/>
+        </item>
+        <item>
             <title>1.2.0</title>
             <pubDate>Thu, 21 May 2026 10:51:30 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
