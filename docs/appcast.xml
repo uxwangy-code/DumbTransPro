@@ -3,6 +3,21 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.2.2</title>
+            <pubDate>Fri, 22 May 2026 10:40:44 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>122</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.2.2
+
+- 将多服务商 API 密钥收敛到单一钥匙串存储项，减少更新后重复授权提示。
+- 旧版分服务商密钥会在使用对应服务商时自动迁移。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.2.2/DumbTransPro-1.2.2.zip" length="3564247" type="application/octet-stream" sparkle:edSignature="kmmcNSWFB8Zun0W8niUyMaBPj9mz6q3T/xJFRmZZ1s7eBM7aanENzX5VcxS1hagI+gg8grSz+mFOKJ3bD5fODw=="/>
+        </item>
+        <item>
             <title>1.2.1</title>
             <pubDate>Thu, 21 May 2026 20:08:50 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
