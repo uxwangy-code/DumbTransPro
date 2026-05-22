@@ -1,6 +1,7 @@
 import Foundation
 
-private let keychainService = "com.whimsycode.dumbtrans-pro"
+private let defaultKeychainService = "com.whimsycode.dumbtrans-pro"
+private let apiKeysKeychainAccount = "api-keys"
 private let legacyKeychainAccount = "api-key"
 private let legacyProviderKey = "provider"
 private let legacyCustomBaseURLKey = "customBaseURL"
@@ -219,21 +220,31 @@ public final class SettingsStore: ObservableObject {
     @Published public private(set) var hotkeys: [TranslationAction: HotkeyConfig?] = [:]
 
     private var configs: [AIProvider: ProviderConfig] = [:]
+    private var apiKeys: [AIProvider: String] = [:]
+    private var attemptedLegacyAPIKeyProviders: Set<AIProvider> = []
     private let defaults: UserDefaults
+    private let keychainService: String
 
-    public init(defaults: UserDefaults = .standard) {
+    public convenience init(defaults: UserDefaults = .standard) {
+        self.init(defaults: defaults, keychainService: defaultKeychainService)
+    }
+
+    init(defaults: UserDefaults, keychainService: String) {
         self.defaults = defaults
+        self.keychainService = keychainService
         loadSettings()
         loadHotkeys()
     }
 
     public func loadSettings() {
         migrateLegacyIfNeeded()
+        apiKeys = loadAPIKeys()
+        attemptedLegacyAPIKeyProviders.removeAll()
 
         for provider in AIProvider.allCases {
             let baseURL = defaults.string(forKey: overrideBaseURLKey(provider)) ?? ""
             let model = defaults.string(forKey: overrideModelKey(provider)) ?? ""
-            let apiKey = (try? KeychainHelper.load(service: keychainService, account: keychainAccount(for: provider))) ?? ""
+            let apiKey = apiKeys[provider] ?? ""
             configs[provider] = ProviderConfig(apiKey: apiKey, baseURL: baseURL, model: model)
         }
 
@@ -296,7 +307,8 @@ public final class SettingsStore: ObservableObject {
     }
 
     public func config(for provider: AIProvider) -> ProviderConfig {
-        configs[provider] ?? ProviderConfig()
+        migrateProviderAPIKeyIfNeeded(for: provider)
+        return configs[provider] ?? ProviderConfig()
     }
 
     public func updateConfig(_ provider: AIProvider, _ config: ProviderConfig) {
@@ -336,18 +348,83 @@ public final class SettingsStore: ObservableObject {
     }
 
     private func persistConfig(provider: AIProvider, config: ProviderConfig) {
+        attemptedLegacyAPIKeyProviders.insert(provider)
+
         let trimmedKey = config.apiKey.trimmingCharacters(in: .whitespaces)
         if trimmedKey.isEmpty {
-            try? KeychainHelper.delete(service: keychainService, account: keychainAccount(for: provider))
+            apiKeys.removeValue(forKey: provider)
         } else {
-            try? KeychainHelper.save(service: keychainService, account: keychainAccount(for: provider), data: config.apiKey)
+            apiKeys[provider] = config.apiKey
+        }
+        if persistAPIKeys() {
+            try? KeychainHelper.delete(service: keychainService, account: legacyProviderKeychainAccount(for: provider))
         }
         defaults.set(config.baseURL, forKey: overrideBaseURLKey(provider))
         defaults.set(config.model, forKey: overrideModelKey(provider))
     }
 
-    private func keychainAccount(for provider: AIProvider) -> String {
+    private func legacyProviderKeychainAccount(for provider: AIProvider) -> String {
         "api-key.\(provider.rawValue)"
+    }
+
+    private func loadAPIKeys() -> [AIProvider: String] {
+        guard let raw = try? KeychainHelper.load(service: keychainService, account: apiKeysKeychainAccount),
+              let data = raw.data(using: .utf8),
+              let stored = try? JSONDecoder().decode([String: String].self, from: data) else {
+            return [:]
+        }
+
+        return stored.reduce(into: [:]) { result, entry in
+            guard let provider = AIProvider(rawValue: entry.key),
+                  !entry.value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                return
+            }
+            result[provider] = entry.value
+        }
+    }
+
+    @discardableResult
+    private func persistAPIKeys() -> Bool {
+        do {
+            if apiKeys.isEmpty {
+                try KeychainHelper.delete(service: keychainService, account: apiKeysKeychainAccount)
+                return true
+            }
+
+            let rawKeys = Dictionary(uniqueKeysWithValues: apiKeys.map { ($0.rawValue, $1) })
+            let data = try JSONEncoder().encode(rawKeys)
+            guard let encoded = String(data: data, encoding: .utf8) else {
+                return false
+            }
+            try KeychainHelper.save(service: keychainService, account: apiKeysKeychainAccount, data: encoded)
+            return true
+        } catch {
+            return false
+        }
+    }
+
+    private func migrateProviderAPIKeyIfNeeded(for provider: AIProvider) {
+        guard apiKeys[provider] == nil,
+              !attemptedLegacyAPIKeyProviders.contains(provider) else {
+            return
+        }
+
+        attemptedLegacyAPIKeyProviders.insert(provider)
+        guard let legacyKey = try? KeychainHelper.load(
+            service: keychainService,
+            account: legacyProviderKeychainAccount(for: provider)
+        ), !legacyKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            return
+        }
+
+        apiKeys[provider] = legacyKey
+        if var config = configs[provider] {
+            config.apiKey = legacyKey
+            configs[provider] = config
+        }
+        if persistAPIKeys() {
+            try? KeychainHelper.delete(service: keychainService, account: legacyProviderKeychainAccount(for: provider))
+        }
     }
 
     private func overrideBaseURLKey(_ provider: AIProvider) -> String {
@@ -373,8 +450,11 @@ public final class SettingsStore: ObservableObject {
 
         let legacyKey = (try? KeychainHelper.load(service: keychainService, account: legacyKeychainAccount)) ?? ""
         if !legacyKey.isEmpty {
-            try? KeychainHelper.save(service: keychainService, account: keychainAccount(for: provider), data: legacyKey)
-            try? KeychainHelper.delete(service: keychainService, account: legacyKeychainAccount)
+            apiKeys = loadAPIKeys()
+            apiKeys[provider] = legacyKey
+            if persistAPIKeys() {
+                try? KeychainHelper.delete(service: keychainService, account: legacyKeychainAccount)
+            }
         }
 
         if provider == .custom {

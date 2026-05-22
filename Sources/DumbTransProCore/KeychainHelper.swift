@@ -13,18 +13,29 @@ public enum KeychainHelper {
         guard let encoded = data.data(using: .utf8) else {
             throw KeychainError.dataConversionFailed
         }
-        // Delete existing item first
-        try? delete(service: service, account: account)
 
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecValueData as String: encoded,
         ]
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else {
-            throw KeychainError.saveFailed(status)
+
+        let updateStatus = SecItemUpdate(
+            query as CFDictionary,
+            [kSecValueData as String: encoded] as CFDictionary
+        )
+        if updateStatus == errSecSuccess {
+            return
+        }
+        guard updateStatus == errSecItemNotFound else {
+            throw KeychainError.saveFailed(updateStatus)
+        }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = encoded
+        let addStatus = SecItemAdd(addQuery as CFDictionary, nil)
+        guard addStatus == errSecSuccess else {
+            throw KeychainError.saveFailed(addStatus)
         }
     }
 
