@@ -122,14 +122,21 @@ configure_info_plist() {
     local generate_keys="$PROJECT_DIR/.build/artifacts/sparkle/Sparkle/bin/generate_keys"
 
     if [[ -z "$public_key" && -x "$generate_keys" ]]; then
-        public_key="$("$generate_keys" --account "$sparkle_account" -p 2>/dev/null || true)"
+        local candidate
+        candidate="$("$generate_keys" --account "$sparkle_account" -p 2>/dev/null | tr -d '[:space:]' || true)"
+        # EdDSA public key is 32 bytes → 44 base64 chars (43 + '='). Anything else
+        # (e.g. "ERROR: No existing signing key found!") must NOT overwrite the
+        # key baked into Resources/Info.plist.
+        if [[ "$candidate" =~ ^[A-Za-z0-9+/]{43}=$ ]]; then
+            public_key="$candidate"
+        fi
     fi
 
     if [[ -n "$public_key" ]]; then
         set_plist_string "SUPublicEDKey" "$public_key"
     else
-        echo "  ⚠ Sparkle public key is not configured; update checks will be disabled in this build."
-        echo "     Fix: run ./scripts/setup-sparkle.sh once, or set DUMBTRANS_SPARKLE_PUBLIC_ED_KEY."
+        echo "  ℹ No local Sparkle key; keeping SUPublicEDKey from Resources/Info.plist."
+        echo "     Run ./scripts/setup-sparkle.sh to mint a local keypair for self-signed builds."
     fi
 }
 
@@ -184,15 +191,29 @@ SIGNING_IDENTITY="${DUMBTRANS_SIGNING_IDENTITY:-DumbTransPro Dev}"
 SIGNING_KEYCHAIN_PATH="${DUMBTRANS_SIGNING_KEYCHAIN_PATH:-${HOME}/Library/Keychains/dumbtrans-signing.keychain-db}"
 SIGNING_KEYCHAIN_PASS="${DUMBTRANS_SIGNING_KEYCHAIN_PASS:-dumbtrans-local-dev}"
 
+sign_bundle() {
+    local sign_arg="$1"
+    local keychain_arg=("${@:2}")
+
+    local sparkle_fw="$CONTENTS_DIR/Frameworks/Sparkle.framework"
+
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/XPCServices/Installer.xpc"
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/XPCServices/Downloader.xpc"
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/Autoupdate"
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/Updater.app"
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw"
+    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$APP_DIR"
+}
+
 sign_adhoc() {
     echo "  ⚠ falling back to adhoc signing."
     echo "     TCC grants (Accessibility) will NOT persist across rebuilds."
     echo "     Fix: run ./scripts/setup-signing.sh once, or recreate the signing keychain if it is locked with a different password."
-    codesign --force --sign - "$APP_DIR"
+    sign_bundle -
 }
 
 sign_with_identity() {
-    local codesign_args=(--force --deep --sign "${SIGNING_IDENTITY}")
+    local keychain_args=()
 
     if [[ -f "${SIGNING_KEYCHAIN_PATH}" ]] &&
        security find-identity -p codesigning "${SIGNING_KEYCHAIN_PATH}" 2>/dev/null | grep -q "\"${SIGNING_IDENTITY}\""; then
@@ -204,7 +225,7 @@ sign_with_identity() {
             return 1
         fi
 
-        codesign_args+=(--keychain "${SIGNING_KEYCHAIN_PATH}")
+        keychain_args+=(--keychain "${SIGNING_KEYCHAIN_PATH}")
     elif security find-identity -p codesigning 2>/dev/null | grep -q "\"${SIGNING_IDENTITY}\""; then
         echo "  → using identity: ${SIGNING_IDENTITY}"
     else
@@ -212,7 +233,7 @@ sign_with_identity() {
         return 1
     fi
 
-    if ! codesign "${codesign_args[@]}" "$APP_DIR"; then
+    if ! sign_bundle "${SIGNING_IDENTITY}" "${keychain_args[@]}"; then
         echo "  ⚠ signing with '${SIGNING_IDENTITY}' failed."
         return 1
     fi
