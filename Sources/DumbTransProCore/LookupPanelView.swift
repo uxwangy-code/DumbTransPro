@@ -66,7 +66,7 @@ struct LookupPanelView: View {
         .padding(.horizontal, 14)
         .padding(.top, 12)
         .padding(.bottom, 8)
-        .background(Color(nsColor: .controlColor))
+        .background(Color(nsColor: .textBackgroundColor).opacity(0.96))
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color(nsColor: .separatorColor).opacity(0.7))
