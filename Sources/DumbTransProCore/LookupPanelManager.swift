@@ -14,7 +14,7 @@ final class LookupPanelManager {
     private var slowHintTask: Task<Void, Never>?
     private var stateObservers: Set<AnyCancellable> = []
 
-    func show(originalText: String, settingsStore: SettingsStore) {
+    func show(originalText: String, settingsStore: SettingsStore, onSuccess: (() -> Void)? = nil) {
         close()
 
         let state = LookupPanelState(originalText: originalText, modelName: settingsStore.model)
@@ -82,6 +82,7 @@ final class LookupPanelManager {
                 state.didFallback = result.didFallback
                 state.isLoading = false
                 state.isSlowLoading = false
+                onSuccess?()
             } catch {
                 guard !Task.isCancelled else { return }
                 state.error = error.localizedDescription

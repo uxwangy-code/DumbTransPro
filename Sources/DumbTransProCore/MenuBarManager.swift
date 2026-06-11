@@ -11,6 +11,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private var statusItem: NSStatusItem?
     private let hotkeyManager = HotkeyManager()
     private let settingsStore = SettingsStore()
+    private let licenseManager = LicenseManager()
     private let lookupPanelManager = LookupPanelManager()
     private lazy var updateManager: UpdateManager = {
         let manager = UpdateManager()
@@ -47,6 +48,9 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         setupHotkey()
         observeHotkeyChanges()
         startAccessibilityWatcher()
+        Task { [licenseManager] in
+            await licenseManager.revalidateIfNeeded()
+        }
         writeDebug("MenuBarManager init complete")
     }
 
@@ -203,6 +207,11 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         settings.target = self
         menu.addItem(settings)
 
+        let license = NSMenuItem(title: licenseManager.menuTitle, action: #selector(openSettings), keyEquivalent: "")
+        license.image = menuSymbol(licenseManager.tier == .pro ? "checkmark.seal" : "crown")
+        license.target = self
+        menu.addItem(license)
+
         let update = NSMenuItem(title: updateManager.menuTitle, action: nil, keyEquivalent: "")
         updateManager.configureMenuItem(update)
         menu.addItem(update)
@@ -285,13 +294,38 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
             return
         }
+        guard passesLicenseGate() else { return }
         Task { @MainActor in
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
                 return
             }
-            lookupPanelManager.show(originalText: selectedText, settingsStore: settingsStore)
+            lookupPanelManager.show(
+                originalText: selectedText,
+                settingsStore: settingsStore,
+                onSuccess: { [weak self] in self?.licenseManager.recordTranslation() }
+            )
+        }
+    }
+
+    /// 翻译动作的 Free/Pro 闸口。被拦时给出下一步引导，不是冷拒绝。
+    private func passesLicenseGate() -> Bool {
+        switch licenseManager.gate(provider: settingsStore.activeProvider) {
+        case .allowed:
+            return true
+        case .providerLocked(let provider):
+            showNotification(
+                title: "「\(provider.displayName)」需要 Pro",
+                message: "免费版可用 \(LicenseManager.freeProviderNames)。可在设置中切换服务商，或激活 Pro 解锁全部。"
+            )
+            return false
+        case .dailyLimitReached(let limit):
+            showNotification(
+                title: "今日免费额度已用完",
+                message: "免费版每天 \(limit) 次翻译。升级 Pro 解锁不限次数：菜单栏 → 设置 → Pro。"
+            )
+            return false
         }
     }
 
@@ -301,6 +335,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
             return
         }
+        guard passesLicenseGate() else { return }
 
         isTranslating = true
         startSpinner()
@@ -333,6 +368,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 writeDebug("Translation result (\(style.title)): \(result)")
                 writeDebug("Pasting result...")
                 await ClipboardManager.pasteText(result)
+                licenseManager.recordTranslation()
                 writeDebug("Paste complete")
             } catch {
                 writeDebug("Translation error: \(error)")
@@ -352,12 +388,12 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         settingsWindow = nil
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 520, height: 720),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
         )
-        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager) { [weak window] in
+        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager, license: licenseManager) { [weak window] in
             window?.close()
         }
         window.title = "瞎翻 Pro 设置"

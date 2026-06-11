@@ -302,6 +302,18 @@ bash scripts/release-update.sh 1.2.0 120 RELEASE_NOTES.md
 
 ---
 
+## 免费版与 Pro
+
+| | 免费版 | Pro（$14.99 一次买断） |
+|---|---|---|
+| 快捷键与三种翻译风格 | ✓ 全部 | ✓ 全部 |
+| AI 服务商 | OpenAI、智谱 GLM | 全部 8 家 + 自定义 endpoint |
+| 每日翻译次数 | 30 次 | 不限 |
+
+Pro license 在 [官网](https://uxwangy-code.github.io/DumbTransPro/) 购买，购买后在 设置 → Pro 输入 License Key 激活。license 离线可用，验证由 Gumroad 托管，app 本身不收集任何数据。
+
 ## License
 
-[MIT](./LICENSE) © 2026 Thirty
+[Source-Available](./LICENSE) © 2026 WhimsyCode (Thirty)
+
+代码公开，欢迎阅读、学习、提 PR；个人可自行编译在自己的设备上使用。不允许分发二进制或商用。v1.2.3 及更早版本仍为 MIT。

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DumbTrans Pro — Select. Hit ⌘⇧R. It's English now.</title>
+<meta name="description" content="A tiny macOS menu bar translator for designers and developers. Select Chinese text in any app, press one hotkey, get kebab-case filenames or natural English. Bring your own AI key. Pay once.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --paper: #FBFBFD;
+  --ink: #1D1D1F;
+  --ink-soft: #6E6E73;
+  --select-blue: #0A6CFF;
+  --select-wash: #CFE3FF;
+  --koi: #F2762E;
+  --hairline: #E4E4E9;
+  --card: #FFFFFF;
+  --radius: 12px;
+  --display: "Space Grotesk", -apple-system, sans-serif;
+  --body: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif;
+  --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--body);
+  background: var(--paper);
+  color: var(--ink);
+  line-height: 1.6;
+  font-size: 17px;
+}
+::selection { background: var(--select-wash); }
+a { color: var(--select-blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--select-blue);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ── faux macOS menu bar ─────────────────────────── */
+.menubar {
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 18px;
+  height: 32px; padding: 0 16px;
+  background: rgba(251,251,253,0.85);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--hairline);
+  font-size: 13px; color: var(--ink-soft);
+}
+.menubar .fish { font-size: 15px; }
+.menubar .appname { font-weight: 600; color: var(--ink); }
+.menubar .spacer { flex: 1; }
+.menubar a { color: var(--ink-soft); }
+.menubar a:hover { color: var(--ink); text-decoration: none; }
+
+/* ── layout ──────────────────────────────────────── */
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
+section { padding: 72px 0; }
+section + section { border-top: 1px solid var(--hairline); }
+
+/* ── hero ────────────────────────────────────────── */
+.hero { padding: 96px 0 80px; text-align: center; }
+.hero h1 {
+  font-family: var(--display);
+  font-size: clamp(34px, 6vw, 56px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  margin-bottom: 18px;
+}
+.hl {
+  background: var(--select-wash);
+  border-radius: 3px;
+  padding: 0 6px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.hero .sub {
+  font-size: 19px; color: var(--ink-soft);
+  max-width: 560px; margin: 0 auto 40px;
+}
+.kbd {
+  font-family: var(--mono); font-size: 0.85em;
+  background: var(--card); border: 1px solid var(--hairline);
+  border-bottom-width: 2px; border-radius: 6px;
+  padding: 1px 7px; white-space: nowrap;
+}
+
+/* hero demo stage */
+.stage {
+  max-width: 620px; margin: 0 auto 36px;
+  background: var(--card);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 12px 32px rgba(10,108,255,0.06);
+  overflow: hidden; text-align: left;
+}
+.stage-bar {
+  display: flex; align-items: center; gap: 6px;
+  padding: 10px 14px; border-bottom: 1px solid var(--hairline);
+}
+.dot { width: 11px; height: 11px; border-radius: 50%; background: #E3E3E8; }
+.stage-bar .label { margin-left: 8px; font-size: 12px; color: var(--ink-soft); }
+.stage-body {
+  padding: 34px 28px; font-size: 24px; min-height: 108px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+#demo-text { transition: background 0.25s; border-radius: 3px; padding: 0 4px; }
+#demo-text.selected { background: var(--select-wash); }
+#demo-text.output { font-family: var(--mono); font-size: 21px; color: var(--select-blue); }
+#demo-key {
+  font-family: var(--mono); font-size: 14px; color: var(--ink-soft);
+  border: 1px solid var(--hairline); border-bottom-width: 2px;
+  border-radius: 6px; padding: 2px 9px; opacity: 0.45;
+  transition: all 0.2s;
+}
+#demo-key.pressed {
+  opacity: 1; color: var(--select-blue);
+  border-color: var(--select-blue);
+  transform: translateY(1px);
+}
+
+/* style toggle */
+.styles-toggle { display: inline-flex; gap: 0; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin-bottom: 36px; }
+.styles-toggle button {
+  font-family: var(--body); font-size: 14px; padding: 8px 18px;
+  background: var(--card); border: none; cursor: pointer; color: var(--ink-soft);
+}
+.styles-toggle button + button { border-left: 1px solid var(--hairline); }
+.styles-toggle button.active { background: var(--select-wash); color: var(--ink); font-weight: 600; }
+
+.cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+.btn {
+  display: inline-block; font-size: 16px; font-weight: 600;
+  padding: 12px 26px; border-radius: 10px; transition: transform 0.15s;
+}
+.btn:hover { text-decoration: none; transform: translateY(-1px); }
+.btn-primary { background: var(--select-blue); color: #fff; }
+.btn-ghost { border: 1px solid var(--hairline); color: var(--ink); background: var(--card); }
+.cta-note { margin-top: 14px; font-size: 13px; color: var(--ink-soft); }
+
+/* ── sections ────────────────────────────────────── */
+h2 {
+  font-family: var(--display);
+  font-size: clamp(26px, 4vw, 34px);
+  font-weight: 700; letter-spacing: -0.01em;
+  margin-bottom: 36px;
+}
+.steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.step {
+  background: var(--card); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 24px;
+}
+.step .n {
+  font-family: var(--mono); font-size: 13px; color: var(--select-blue);
+  display: block; margin-bottom: 10px;
+}
+.step h3 { font-size: 17px; margin-bottom: 6px; }
+.step p { font-size: 15px; color: var(--ink-soft); }
+
+.lookup-line { margin-top: 28px; font-size: 15px; color: var(--ink-soft); }
+
+/* three styles cards */
+.style-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.style-card {
+  background: var(--card); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 24px;
+}
+.style-card h3 { font-size: 17px; margin-bottom: 4px; }
+.style-card .tag { font-size: 13px; color: var(--ink-soft); display: block; margin-bottom: 14px; }
+.style-card .pair { font-family: var(--mono); font-size: 14px; line-height: 1.9; }
+.style-card .pair .out { color: var(--select-blue); }
+.style-card.chinglish { border-color: var(--koi); }
+.style-card.chinglish .out { color: var(--koi); }
+
+/* privacy */
+.privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.privacy-card { background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius); padding: 24px; }
+.privacy-card h3 { font-size: 17px; margin-bottom: 8px; }
+.privacy-card p { font-size: 15px; color: var(--ink-soft); }
+.providers { margin-top: 28px; font-size: 14px; color: var(--ink-soft); }
+.providers span { font-family: var(--mono); font-size: 13px; }
+
+/* pricing */
+.plans { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; max-width: 720px; }
+.plan {
+  background: var(--card); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 28px;
+}
+.plan.pro { border: 2px solid var(--select-blue); }
+.plan h3 { font-family: var(--display); font-size: 20px; }
+.plan .price { font-family: var(--display); font-size: 38px; font-weight: 700; margin: 10px 0 2px; }
+.plan .price .was { font-size: 18px; color: var(--ink-soft); text-decoration: line-through; font-weight: 400; margin-left: 8px; }
+.plan .billing { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; }
+.plan ul { list-style: none; margin-bottom: 22px; }
+.plan li { font-size: 15px; padding: 5px 0 5px 26px; position: relative; }
+.plan li::before { content: "✓"; position: absolute; left: 2px; color: var(--select-blue); font-weight: 700; }
+.plan.free li::before { color: var(--ink-soft); }
+.honesty {
+  margin-top: 28px; max-width: 720px; font-size: 14px; color: var(--ink-soft);
+  background: var(--card); border: 1px solid var(--hairline);
+  border-left: 3px solid var(--koi); border-radius: 8px; padding: 14px 18px;
+}
+
+/* faq */
+.faq details {
+  border-bottom: 1px solid var(--hairline); padding: 18px 0;
+}
+.faq summary { font-size: 17px; font-weight: 600; cursor: pointer; list-style: none; }
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::before { content: "+"; font-family: var(--mono); color: var(--select-blue); margin-right: 12px; }
+.faq details[open] summary::before { content: "−"; }
+.faq details p { margin-top: 10px; padding-left: 26px; color: var(--ink-soft); font-size: 15px; }
+
+/* footer */
+footer {
+  border-top: 1px solid var(--hairline);
+  padding: 36px 0 48px; font-size: 14px; color: var(--ink-soft);
+}
+footer .links { display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 12px; }
+footer a { color: var(--ink-soft); }
+footer a:hover { color: var(--ink); }
+
+@media (max-width: 720px) {
+  .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
+  .hero { padding: 64px 0 56px; }
+  section { padding: 52px 0; }
+  .stage-body { font-size: 19px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  .btn:hover { transform: none; }
+}
+</style>
+</head>
+<body>
+
+<nav class="menubar" aria-label="Site navigation">
+  <span class="fish" aria-hidden="true">🐟</span>
+  <span class="appname">DumbTrans Pro</span>
+  <span class="spacer"></span>
+  <a href="#how">How it works</a>
+  <a href="#styles">Styles</a>
+  <a href="#pricing">Pricing</a>
+  <a href="https://github.com/uxwangy-code/DumbTransPro">GitHub</a>
+</nav>
+
+<header class="hero wrap">
+  <h1>Select. Hit <span class="kbd">⌘⇧R</span>.<br>It's <span class="hl">English</span> now.</h1>
+  <p class="sub">A tiny macOS menu bar translator for designers and developers. It lives behind one hotkey, works in any app, and pastes the translation right back where your text was.</p>
+
+  <div class="stage" role="img" aria-label="Demo: selected Chinese text 好好学习天天向上 transforms into the English filename study-hard-improve-daily after pressing command shift R">
+    <div class="stage-bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="label">Anywhere on your Mac — Finder, Figma, your IDE, a search box</span>
+    </div>
+    <div class="stage-body">
+      <span id="demo-text">好好学习天天向上</span>
+      <span id="demo-key">⌘⇧R</span>
+    </div>
+  </div>
+
+  <div class="styles-toggle" role="group" aria-label="Translation style">
+    <button class="active" data-style="proper">Proper</button>
+    <button data-style="chinglish">Chinglish</button>
+    <button data-style="pretentious">Pretentious</button>
+  </div>
+
+  <div class="cta-row">
+    <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro">Get Pro — $9.99 launch price</a>
+    <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest">Download free version</a>
+  </div>
+  <p class="cta-note">One-time purchase · macOS 13+ · bring your own AI key</p>
+</header>
+
+<section id="how" class="wrap">
+  <h2>Three seconds, start to finish</h2>
+  <div class="steps">
+    <div class="step">
+      <span class="n">1</span>
+      <h3>Select text</h3>
+      <p>Chinese you just typed: a filename, a variable name, a search keyword on Dribbble, a sentence in a chat box.</p>
+    </div>
+    <div class="step">
+      <span class="n">2</span>
+      <h3>Press <span class="kbd">⌘⇧R</span></h3>
+      <p>The fish in your menu bar blinks while your chosen AI model does the work. Usually under a second.</p>
+    </div>
+    <div class="step">
+      <span class="n">3</span>
+      <h3>It's replaced</h3>
+      <p>Short phrases come back as <span class="kbd">kebab-case</span> ready for filenames and code. Sentences come back as natural English.</p>
+    </div>
+  </div>
+  <p class="lookup-line">Reading, not writing? Select any English text and press <span class="kbd">⌘⇧F</span> — a floating panel shows the Chinese translation without leaving your app.</p>
+</section>
+
+<section id="styles" class="wrap">
+  <h2>Three translation styles. One of them is a joke.</h2>
+  <div class="style-cards">
+    <div class="style-card">
+      <h3>Proper</h3>
+      <span class="tag">Default. Natural, accurate, what you actually ship.</span>
+      <div class="pair">好好学习<br><span class="out">study-hard</span></div>
+    </div>
+    <div class="style-card chinglish">
+      <h3>Chinglish</h3>
+      <span class="tag">Word-for-word, the way your English teacher feared.</span>
+      <div class="pair">人山人海<br><span class="out">people-mountain-people-sea</span></div>
+    </div>
+    <div class="style-card">
+      <h3>Pretentious</h3>
+      <span class="tag">Classical Chinese and Latin, for when you must show off.</span>
+      <div class="pair">项目<br><span class="out">opus-magnum</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="wrap">
+  <h2>Your keys. Your data. No middleman.</h2>
+  <div class="privacy-grid">
+    <div class="privacy-card">
+      <h3>Bring your own API key</h3>
+      <p>Connect your own account from OpenAI, DeepSeek, Zhipu and more. You pay your provider's rates directly — typically fractions of a cent per translation — instead of a markup subscription.</p>
+    </div>
+    <div class="privacy-card">
+      <h3>Your text never touches our servers</h3>
+      <p>There are no servers. Translation requests go straight from your Mac to the AI provider you chose. Keys live in the macOS Keychain. No analytics, no telemetry.</p>
+    </div>
+    <div class="privacy-card">
+      <h3>Native Swift, not Electron</h3>
+      <p>Cold-starts instantly, idles at near-zero memory, and doesn't occupy a Dock slot. Just a small fish in your menu bar.</p>
+    </div>
+    <div class="privacy-card">
+      <h3>No subscription</h3>
+      <p>Pro is a one-time purchase. Updates ship through the built-in updater. If we disappear tomorrow, the app keeps working with your keys.</p>
+    </div>
+  </div>
+  <p class="providers">Works with: <span>OpenAI · Zhipu GLM · DeepSeek · Kimi · MiniMax · Qwen · Doubao · any OpenAI-compatible endpoint</span></p>
+</section>
+
+<section id="pricing" class="wrap">
+  <h2>Pay once. That's the whole pricing page.</h2>
+  <div class="plans">
+    <div class="plan free">
+      <h3>Free</h3>
+      <div class="price">$0</div>
+      <div class="billing">forever</div>
+      <ul>
+        <li>Both hotkeys, all three styles</li>
+        <li>OpenAI + Zhipu GLM (free-tier model available)</li>
+        <li>30 translations per day</li>
+      </ul>
+      <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest">Download</a>
+    </div>
+    <div class="plan pro">
+      <h3>Pro</h3>
+      <div class="price">$9.99<span class="was">$14.99</span></div>
+      <div class="billing">one-time · launch price</div>
+      <ul>
+        <li>Everything in Free</li>
+        <li>All 8 providers + custom endpoints</li>
+        <li>Unlimited translations</li>
+        <li>A license key that works offline</li>
+      </ul>
+      <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro">Buy Pro</a>
+    </div>
+  </div>
+  <p class="honesty">Honest note: the app's interface is currently in Simplified Chinese (the translations themselves go both ways). An English interface is on the roadmap. If that's a dealbreaker, the free version is a fine way to wait.</p>
+</section>
+
+<section class="wrap faq">
+  <h2>Questions</h2>
+  <details>
+    <summary>I don't have an API key. Is that hard?</summary>
+    <p>No. Zhipu GLM gives you a free model (glm-4-flash) just for signing up — that's the default we recommend. Any OpenAI-compatible key works too. Setup is: paste key, done.</p>
+  </details>
+  <details>
+    <summary>Is my text private?</summary>
+    <p>Your selected text goes directly from your Mac to the AI provider you configured, using your key. The app has no servers and collects nothing. The only network calls we make are license verification (Gumroad) and update checks. Details in the <a href="privacy.html">privacy policy</a>.</p>
+  </details>
+  <details>
+    <summary>How many Macs can I use a license on?</summary>
+    <p>Your personal Macs — work laptop and home machine are both fine. Licenses are per person, not per device.</p>
+  </details>
+  <details>
+    <summary>What if it's not for me?</summary>
+    <p>Email us within 14 days for a full refund, no questions asked. See the <a href="refund.html">refund policy</a>.</p>
+  </details>
+  <details>
+    <summary>Why "DumbTrans"?</summary>
+    <p>Because the Chinglish mode translates 加油 as "add-oil" and we refuse to apologize for it.</p>
+  </details>
+</section>
+
+<footer>
+  <div class="wrap">
+    <div class="links">
+      <a href="terms.html">Terms of Service</a>
+      <a href="privacy.html">Privacy Policy</a>
+      <a href="refund.html">Refund Policy</a>
+      <a href="https://github.com/uxwangy-code/DumbTransPro">Source on GitHub</a>
+    </div>
+    <p>© 2026 WhimsyCode · DumbTrans Pro is an independent app. Not affiliated with any AI provider.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var outputs = {
+    proper: "study-hard-improve-daily",
+    chinglish: "good-good-study-day-day-up",
+    pretentious: "per-studium-ad-astra"
+  };
+  var source = "好好学习天天向上";
+  var currentStyle = "proper";
+  var text = document.getElementById("demo-text");
+  var key = document.getElementById("demo-key");
+  var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var timer = null;
+
+  function setStatic() {
+    text.textContent = source + "  →  " + outputs[currentStyle];
+    text.className = "";
+  }
+
+  function run() {
+    if (reduced) { setStatic(); return; }
+    clearTimeout(timer);
+    text.textContent = source;
+    text.className = "";
+    key.className = "";
+    timer = setTimeout(function () {
+      text.classList.add("selected");
+      timer = setTimeout(function () {
+        key.classList.add("pressed");
+        timer = setTimeout(function () {
+          key.classList.remove("pressed");
+          text.classList.remove("selected");
+          text.classList.add("output");
+          text.textContent = outputs[currentStyle];
+          timer = setTimeout(run, 3200);
+        }, 700);
+      }, 900);
+    }, 1100);
+  }
+
+  var buttons = document.querySelectorAll(".styles-toggle button");
+  buttons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      buttons.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      currentStyle = btn.getAttribute("data-style");
+      run();
+    });
+  });
+
+  run();
+})();
+</script>
+</body>
+</html>

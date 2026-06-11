@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Privacy Policy — DumbTrans Pro</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1D1D1F; background: #FBFBFD; line-height: 1.7; font-size: 16px; }
+.wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
+h1 { font-size: 28px; margin-bottom: 4px; }
+.updated { color: #6E6E73; font-size: 14px; margin-bottom: 36px; }
+h2 { font-size: 19px; margin: 32px 0 10px; }
+p, li { color: #3A3A3C; margin-bottom: 10px; }
+ul { padding-left: 22px; }
+a { color: #0A6CFF; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back { display: inline-block; margin-bottom: 24px; font-size: 14px; }
+.tldr { background: #fff; border: 1px solid #E4E4E9; border-left: 3px solid #0A6CFF; border-radius: 8px; padding: 14px 18px; margin-bottom: 28px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+<a class="back" href="index.html">← DumbTrans Pro</a>
+<h1>Privacy Policy</h1>
+<p class="updated">Last updated: June 11, 2026</p>
+
+<div class="tldr"><strong>Short version:</strong> DumbTrans Pro has no servers, no accounts, no analytics, and no telemetry. Your text goes directly from your Mac to the AI provider you configured. We never see it.</div>
+
+<h2>What the App stores, and where</h2>
+<ul>
+<li><strong>API keys</strong> you enter are stored in the macOS Keychain on your device. They are sent only to the corresponding AI provider's endpoint, never to us.</li>
+<li><strong>License keys</strong> are stored in the macOS Keychain on your device.</li>
+<li><strong>Settings</strong> (chosen provider, hotkeys, translation style, daily usage count for the free tier) are stored locally in macOS user defaults.</li>
+<li><strong>Your translated text</strong> is not stored by the App at all.</li>
+</ul>
+
+<h2>Network connections the App makes</h2>
+<ul>
+<li><strong>Translation requests</strong> go directly from your Mac to the AI provider you selected (e.g. api.openai.com), authenticated with your own key, under that provider's privacy policy.</li>
+<li><strong>License verification</strong> sends your license key (and nothing else) to Gumroad's license API when you activate, and periodically thereafter.</li>
+<li><strong>Update checks</strong> fetch a standard appcast file from GitHub Pages via the Sparkle framework. This involves ordinary HTTP request metadata (such as your IP address, visible to GitHub) and no personal data from the App.</li>
+</ul>
+
+<h2>What we collect</h2>
+<p>Nothing. The App contains no analytics SDK, no crash reporter, and no tracking. If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.</p>
+
+<h2>Purchases</h2>
+<p>When you buy a license, the checkout is operated by Gumroad and/or Paddle. They process your payment details and email address under their own privacy policies; we receive your email address and license status so we can provide support.</p>
+
+<h2>Children</h2>
+<p>The App is not directed at children under 13 and we do not knowingly collect data from them (we do not collect data from anyone).</p>
+
+<h2>Changes</h2>
+<p>If this policy changes materially, the new version will be posted here with an updated date.</p>
+
+<h2>Contact</h2>
+<p><a href="mailto:ux.wangy@gmail.com">ux.wangy@gmail.com</a></p>
+</div>
+</body>
+</html>

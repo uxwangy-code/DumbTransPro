@@ -1,21 +1,51 @@
-MIT License
+DumbTrans Pro Source-Available License
+Version 1.0, June 2026
 
-Copyright (c) 2026 Thirty
+Copyright (c) 2026 WhimsyCode (Thirty)
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+This is a source-available license, not an open-source license. The source
+code is published for transparency, learning, and contribution — the software
+itself is a commercial product.
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+== What you may do ==
+
+1. View, study, and modify the source code.
+2. Compile and run the software on devices you personally own or control,
+   for personal, non-commercial use.
+3. Submit contributions (e.g. pull requests) to the official repository.
+   By submitting a contribution you license it to the copyright holder
+   under these same terms.
+
+== What you may not do ==
+
+1. Distribute the software or any derivative of it, in source or binary
+   form, outside the official repository. Official binaries are distributed
+   only via the project's GitHub Releases and official sales channels.
+2. Use the software, or any derivative of it, for commercial purposes,
+   including selling, sublicensing, bundling, or offering it as a service.
+3. Remove or circumvent the license-key and usage-tier mechanisms in
+   distributed builds.
+
+== Third-party components ==
+
+Vendored and dependency code from third parties (including
+sindresorhus/KeyboardShortcuts and the Sparkle framework) remains under its
+original license (MIT); see the attribution headers in those files. This
+license applies only to code original to this project.
+
+== Prior versions ==
+
+Versions up to and including v1.2.3 were published under the MIT License and
+remain governed by it. This license applies to all later versions.
+
+== No warranty ==
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
 IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
 FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHERWISE IN THE
-SOFTWARE.
+COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING
+FROM THE USE OF THE SOFTWARE.
+
+== Contact ==
+
+Commercial licensing and questions: ux.wangy@gmail.com

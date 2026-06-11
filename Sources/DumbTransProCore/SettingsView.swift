@@ -5,6 +5,7 @@ public struct SettingsView: View {
     private static let fridayTenantLookupURL = URL(string: "https://friday.sankuai.com/budget/serviceManage")!
 
     @ObservedObject var store: SettingsStore
+    @ObservedObject var license: LicenseManager
     let hotkeyManager: HotkeyManager
     @Environment(\.dismiss) private var dismiss
     private let onClose: (() -> Void)?
@@ -15,9 +16,13 @@ public struct SettingsView: View {
     @State private var model: String = ""
     @State private var translationStyle: TranslationStyle
     @State private var isAPIKeyVisible: Bool = false
+    @State private var licenseKeyInput: String = ""
+    @State private var isActivatingLicense: Bool = false
+    @State private var licenseError: String?
 
-    public init(store: SettingsStore, hotkeyManager: HotkeyManager, onClose: (() -> Void)? = nil) {
+    public init(store: SettingsStore, hotkeyManager: HotkeyManager, license: LicenseManager, onClose: (() -> Void)? = nil) {
         self.store = store
+        self.license = license
         self.hotkeyManager = hotkeyManager
         self.onClose = onClose
         _selectedProvider = State(initialValue: store.activeProvider)
@@ -51,6 +56,10 @@ public struct SettingsView: View {
 
             translationStyleSection
 
+            Divider()
+
+            licenseSection
+
             HStack {
                 Spacer()
                 Button("取消") {
@@ -76,8 +85,8 @@ public struct SettingsView: View {
                 .font(.subheadline)
             Picker("", selection: $selectedProvider) {
                 Text("请选择服务商").tag(AIProvider?.none)
-                ForEach(AIProvider.allCases) { provider in
-                    Text(provider.displayName).tag(AIProvider?.some(provider))
+                ForEach(visibleProviders) { provider in
+                    Text(providerLabel(provider)).tag(AIProvider?.some(provider))
                 }
             }
             .pickerStyle(.menu)
@@ -86,7 +95,27 @@ public struct SettingsView: View {
             .onChange(of: selectedProvider) { newValue in
                 loadFields(for: newValue)
             }
+            if license.tier == .free {
+                Text("免费版可用 \(LicenseManager.freeProviderNames)；带 🔒 的服务商需要 Pro。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
         }
+    }
+
+    /// friday 是内部环境专用 provider，只对已经配置过它的老用户可见
+    private var visibleProviders: [AIProvider] {
+        AIProvider.allCases.filter { provider in
+            guard provider == .friday else { return true }
+            return store.activeProvider == .friday || !store.config(for: .friday).apiKey.isEmpty
+        }
+    }
+
+    private func providerLabel(_ provider: AIProvider) -> String {
+        if license.tier == .free && !LicenseManager.freeProviders.contains(provider) {
+            return provider.displayName + " 🔒"
+        }
+        return provider.displayName
     }
 
     private func endpointSection(provider: AIProvider) -> some View {
@@ -224,6 +253,66 @@ public struct SettingsView: View {
                 }
                 .buttonStyle(.plain)
             }
+        }
+    }
+
+    private var licenseSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Pro")
+                .font(.subheadline)
+            if license.tier == .pro {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.seal.fill")
+                        .foregroundStyle(.green)
+                    Text("Pro 已激活" + (license.maskedKey.map { "（\($0)）" } ?? ""))
+                    Spacer()
+                    Button("停用此设备") {
+                        license.deactivate()
+                    }
+                }
+            } else {
+                Text("免费版：\(LicenseManager.freeProviderNames)，每日 \(LicenseManager.freeDailyLimit) 次。Pro 一次买断，解锁全部服务商 + 不限次数。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                HStack(spacing: 8) {
+                    TextField("输入 License Key...", text: $licenseKeyInput)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 280)
+                    Button(isActivatingLicense ? "验证中..." : "激活") {
+                        activateLicense()
+                    }
+                    .disabled(isActivatingLicense || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
+                    Link(destination: GumroadLicenseVerifier.purchaseURL) {
+                        HStack(spacing: 2) {
+                            Text("获取 License")
+                            Image(systemName: "arrow.up.right")
+                                .font(.system(size: 9, weight: .semibold))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                }
+                if let licenseError {
+                    Text(licenseError)
+                        .font(.caption)
+                        .foregroundStyle(.red)
+                }
+            }
+        }
+    }
+
+    private func activateLicense() {
+        isActivatingLicense = true
+        licenseError = nil
+        let key = licenseKeyInput
+        Task { @MainActor in
+            do {
+                try await license.activate(key: key)
+                licenseKeyInput = ""
+            } catch {
+                licenseError = error.localizedDescription
+            }
+            isActivatingLicense = false
         }
     }
 
