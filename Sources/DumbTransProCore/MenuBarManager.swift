@@ -397,7 +397,13 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             window?.close()
         }
         window.title = "瞎翻 Pro 设置"
-        window.contentView = NSHostingView(rootView: view)
+        let hostingView = NSHostingView(rootView: view)
+        window.contentView = hostingView
+        // Fit the window to the SwiftUI content so new sections never get clipped
+        let fitting = hostingView.fittingSize
+        if fitting.height > 0 {
+            window.setContentSize(fitting)
+        }
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.isReleasedWhenClosed = false
@@ -619,7 +625,7 @@ private struct LoadingToastView: View {
                     .foregroundStyle(.white)
                     .frame(width: 18, height: 18)
             }
-            Text("转写中，请稍等...")
+            Text("翻译中，请稍等...")
                 .font(.system(size: 13, weight: .semibold))
                 .foregroundStyle(.white)
             Spacer(minLength: 0)

@@ -8,9 +8,10 @@ public enum ClipboardManager {
         // Wait for user to release modifier keys from the hotkey combo
         try? await Task.sleep(for: .milliseconds(120))
 
-        // Save current pasteboard contents
+        // Save current pasteboard contents — all items and types, not just
+        // plain text, so images/files in the clipboard survive a translation
         let pasteboard = NSPasteboard.general
-        let oldContents = pasteboard.string(forType: .string)
+        let oldItems = snapshotItems(of: pasteboard)
         let oldChangeCount = pasteboard.changeCount
 
         // Simulate Cmd+C using a fresh event source that ignores physical key state
@@ -33,12 +34,26 @@ public enum ClipboardManager {
         }
 
         // Restore old pasteboard contents
-        if let old = oldContents {
+        if !oldItems.isEmpty {
             pasteboard.clearContents()
-            pasteboard.setString(old, forType: .string)
+            pasteboard.writeObjects(oldItems)
         }
 
         return newText
+    }
+
+    private static func snapshotItems(of pasteboard: NSPasteboard) -> [NSPasteboardItem] {
+        (pasteboard.pasteboardItems ?? []).compactMap { item in
+            let copy = NSPasteboardItem()
+            var hasData = false
+            for type in item.types {
+                if let data = item.data(forType: type) {
+                    copy.setData(data, forType: type)
+                    hasData = true
+                }
+            }
+            return hasData ? copy : nil
+        }
     }
 
     /// Write text to pasteboard and simulate Cmd+V to paste.

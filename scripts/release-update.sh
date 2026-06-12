@@ -77,6 +77,19 @@ DUMBTRANS_SPARKLE_PUBLIC_ED_KEY="$PUBLIC_KEY" \
 echo "Creating update archive: $ARCHIVE_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$PROJECT_DIR/build/DumbTransPro.app" "$ARCHIVE_PATH"
 
+# 可选公证:设置 DUMBTRANS_NOTARY_PROFILE 后启用(需 Developer ID 签名 + 提前用
+# `xcrun notarytool store-credentials` 存好凭据)。对外发售版必须走这一步,
+# 否则 Gatekeeper 会拦截下载的 app。
+if [[ -n "${DUMBTRANS_NOTARY_PROFILE:-}" ]]; then
+    echo "Notarizing archive with keychain profile '${DUMBTRANS_NOTARY_PROFILE}'..."
+    xcrun notarytool submit "$ARCHIVE_PATH" --keychain-profile "$DUMBTRANS_NOTARY_PROFILE" --wait
+    echo "Stapling notarization ticket to app..."
+    xcrun stapler staple "$PROJECT_DIR/build/DumbTransPro.app"
+    echo "Re-creating archive with stapled app..."
+    rm -f "$ARCHIVE_PATH"
+    ditto -c -k --sequesterRsrc --keepParent "$PROJECT_DIR/build/DumbTransPro.app" "$ARCHIVE_PATH"
+fi
+
 if [[ -n "$RELEASE_NOTES" ]]; then
     if [[ ! -f "$RELEASE_NOTES" ]]; then
         echo "Release notes file not found: $RELEASE_NOTES" >&2

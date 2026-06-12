@@ -197,12 +197,25 @@ sign_bundle() {
 
     local sparkle_fw="$CONTENTS_DIR/Frameworks/Sparkle.framework"
 
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/XPCServices/Installer.xpc"
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/XPCServices/Downloader.xpc"
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/Autoupdate"
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw/Versions/B/Updater.app"
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$sparkle_fw"
-    codesign --force --sign "$sign_arg" "${keychain_arg[@]}" "$APP_DIR"
+    # Developer ID 签名需要 hardened runtime + secure timestamp 才能通过公证;
+    # 本地自签/adhoc 不加,避免无谓的时间戳网络请求
+    # bash 3.2 在 set -u 下展开空数组会报 unbound variable,用 ${arr[@]+...} 习语规避
+    local hardened_args=()
+    if [[ "$sign_arg" == *"Developer ID"* ]]; then
+        hardened_args+=(--options runtime --timestamp)
+        echo "  → Developer ID identity detected: enabling hardened runtime + timestamp"
+    fi
+
+    local sign_cmd=(codesign --force --sign "$sign_arg"
+        ${hardened_args[@]+"${hardened_args[@]}"}
+        ${keychain_arg[@]+"${keychain_arg[@]}"})
+
+    "${sign_cmd[@]}" "$sparkle_fw/Versions/B/XPCServices/Installer.xpc"
+    "${sign_cmd[@]}" "$sparkle_fw/Versions/B/XPCServices/Downloader.xpc"
+    "${sign_cmd[@]}" "$sparkle_fw/Versions/B/Autoupdate"
+    "${sign_cmd[@]}" "$sparkle_fw/Versions/B/Updater.app"
+    "${sign_cmd[@]}" "$sparkle_fw"
+    "${sign_cmd[@]}" "$APP_DIR"
 }
 
 sign_adhoc() {

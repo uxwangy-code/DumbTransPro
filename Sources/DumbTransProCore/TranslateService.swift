@@ -14,7 +14,7 @@ public enum TranslateError: Error, LocalizedError {
         case .requestTimedOut: return "翻译请求超时，请稍后重试"
         case .apiError(let code, let msg): return "API 错误 (\(code)): \(msg)"
         case .contentBlocked(let msg):
-            return "服务商触发了内容审核,可能涉及敏感内容。\n建议改用 OpenAI 或 Friday 等其他端点重试。\n\n服务商返回:\(msg)"
+            return "服务商触发了内容审核,可能涉及敏感内容。\n建议切换到 OpenAI 等其他服务商重试。\n\n服务商返回:\(msg)"
         case .invalidResponse: return "无效的 API 响应"
         case .networkError(let err): return "网络错误: \(err.localizedDescription)"
         }
@@ -166,6 +166,14 @@ public final class TranslateService: Sendable {
 
     // MARK: - HTTP
 
+    /// 拼出 chat/completions 端点；容忍末尾斜杠，非法 URL 返回 nil 而不是崩溃
+    static func endpointURL(baseURL: String) -> URL? {
+        var trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        while trimmed.hasSuffix("/") { trimmed.removeLast() }
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: "\(trimmed)/chat/completions")
+    }
+
     private func chatRequest(
         system: String,
         examples: [(input: String, output: String)],
@@ -173,7 +181,9 @@ public final class TranslateService: Sendable {
         timeout: TimeInterval,
         maxTokens: Int
     ) async throws -> String {
-        let url = URL(string: "\(baseURL)/chat/completions")!
+        guard let url = Self.endpointURL(baseURL: baseURL) else {
+            throw TranslateError.apiError(statusCode: 0, message: "Endpoint 地址无效,请在设置中检查(当前: \(baseURL))")
+        }
         var request = URLRequest(url: url, timeoutInterval: timeout)
         request.httpMethod = "POST"
         let trimmedAPIKey = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
