@@ -246,7 +246,7 @@ sign_with_identity() {
         return 1
     fi
 
-    if ! sign_bundle "${SIGNING_IDENTITY}" "${keychain_args[@]}"; then
+    if ! sign_bundle "${SIGNING_IDENTITY}" ${keychain_args[@]+"${keychain_args[@]}"}; then
         echo "  ⚠ signing with '${SIGNING_IDENTITY}' failed."
         return 1
     fi

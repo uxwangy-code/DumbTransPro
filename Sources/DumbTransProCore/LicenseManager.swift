@@ -44,7 +44,7 @@ public protocol LicenseVerifying: Sendable {
 /// Gumroad License Key 校验。Gumroad 托管签发/停用，app 端只做一次 HTTPS 校验，无自建后端。
 public struct GumroadLicenseVerifier: LicenseVerifying {
     /// 在 Gumroad 后台创建商品并勾选 "Generate license keys" 后，把商品的 product_id 填到这里再发版。
-    public static let productID = "REPLACE_WITH_GUMROAD_PRODUCT_ID"
+    public static let productID = "Qona8hwEBPez88DAZeBWZw=="
     /// Gumroad 商品购买页，设置面板"获取 License"跳转用。
     public static let purchaseURL = URL(string: "https://whimsycode.gumroad.com/l/dumbtranspro")!
 
