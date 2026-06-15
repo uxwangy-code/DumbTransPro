@@ -349,6 +349,10 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 )
             case .offline:
                 guard let engine = offlineTranslator else { return }
+                guard await engine.availability() == .ready else {
+                    showNotification(title: "离线翻译需要语言包", message: "首次使用请到 设置 → 离线翻译（或 系统设置 → 通用 → 语言与地区 → 翻译语言）下载中文与英文。")
+                    return
+                }
                 lookupPanelManager.show(
                     originalText: selectedText,
                     modelLabel: "离线翻译 · 设备端",
@@ -427,6 +431,10 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 case .offline:
                     // 离线路径：引擎出纯英文，复用与 AI 相同的 词→kebab / 句→原文 分流。
                     guard let engine = offlineTranslator else { return }
+                    guard await engine.availability() == .ready else {
+                        showNotification(title: "离线翻译需要语言包", message: "首次使用请到 设置 → 离线翻译（或 系统设置 → 通用 → 语言与地区 → 翻译语言）下载中文与英文。")
+                        return
+                    }
                     let english = try await engine.rewriteToEnglish(selectedText)
                     result = OfflineRewriteFormatter.format(originalInput: selectedText, english: english)
                 case .needsSetup:
