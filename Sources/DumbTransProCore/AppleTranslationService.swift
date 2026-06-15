@@ -216,4 +216,36 @@ private struct OfflineHostView: View {
             }
     }
 }
+
+/// 一键下载离线语言包。点按后用 `.translationTask` + `prepareTranslation()` 触发 Apple
+/// 原生下载弹窗——弹窗只列出所需的中文与英文，无需用户去系统设置层层翻找。
+/// 必须挂在「可见窗口」里（设置窗口），系统弹窗才能正确依附。
+@available(macOS 15, *)
+struct OfflineLanguageDownloadButton: View {
+    /// 下载结束（成功/取消/失败）后回调，供外部重新查询 availability 刷新状态。
+    let onFinish: () async -> Void
+
+    @State private var config: TranslationSession.Configuration?
+    @State private var isPreparing = false
+
+    var body: some View {
+        Button {
+            isPreparing = true
+            config = TranslationSession.Configuration(
+                source: Locale.Language(identifier: "zh-Hans"),
+                target: Locale.Language(identifier: "en")
+            )
+        } label: {
+            Label(isPreparing ? "下载中…" : "下载离线语言包（中 ⇄ 英）", systemImage: "arrow.down.circle")
+        }
+        .disabled(isPreparing)
+        .translationTask(config) { session in
+            // 触发系统原生下载弹窗（仅列出中文与英文）；用户取消/失败则静默
+            try? await session.prepareTranslation()
+            isPreparing = false
+            config = nil
+            await onFinish()
+        }
+    }
+}
 #endif

@@ -303,15 +303,23 @@ public struct SettingsView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             case .needsDownload:
-                VStack(alignment: .leading, spacing: 4) {
-                    Label("需下载语言包", systemImage: "arrow.down.circle")
+                VStack(alignment: .leading, spacing: 6) {
+                    Label("离线翻译需要先下载语言包", systemImage: "arrow.down.circle")
                         .font(.caption)
                         .foregroundStyle(.orange)
-                    Text("在 系统设置 → 通用 → 语言与地区 → 翻译语言 中添加「中文」和「英文」后即可离线使用。")
+                    #if canImport(Translation)
+                    if #available(macOS 15, *) {
+                        // 一键：弹出 Apple 原生下载框，只列中文与英文
+                        OfflineLanguageDownloadButton {
+                            offlineAvailability = await offlineTranslator?.availability()
+                        }
                         .font(.caption)
+                    }
+                    #endif
+                    Button("或在系统设置中手动添加") { openLanguageSettings() }
+                        .font(.caption2)
+                        .buttonStyle(.plain)
                         .foregroundStyle(.secondary)
-                    Button("打开系统设置") { openLanguageSettings() }
-                        .font(.caption)
                 }
             case .unsupported, .none:
                 Label("当前系统不支持离线翻译（需 macOS 15+）", systemImage: "xmark.circle")
