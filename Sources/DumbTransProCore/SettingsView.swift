@@ -7,9 +7,11 @@ public struct SettingsView: View {
     @ObservedObject var store: SettingsStore
     @ObservedObject var license: LicenseManager
     let hotkeyManager: HotkeyManager
+    private let offlineTranslator: (any OfflineTranslating)?
     @Environment(\.dismiss) private var dismiss
     private let onClose: (() -> Void)?
 
+    @State private var offlineAvailability: OfflineAvailability?
     @State private var selectedProvider: AIProvider?
     @State private var apiKey: String = ""
     @State private var baseURLOverride: String = ""
@@ -20,10 +22,11 @@ public struct SettingsView: View {
     @State private var isActivatingLicense: Bool = false
     @State private var licenseError: String?
 
-    public init(store: SettingsStore, hotkeyManager: HotkeyManager, license: LicenseManager, onClose: (() -> Void)? = nil) {
+    public init(store: SettingsStore, hotkeyManager: HotkeyManager, license: LicenseManager, offlineTranslator: (any OfflineTranslating)? = nil, onClose: (() -> Void)? = nil) {
         self.store = store
         self.license = license
         self.hotkeyManager = hotkeyManager
+        self.offlineTranslator = offlineTranslator
         self.onClose = onClose
         _selectedProvider = State(initialValue: store.activeProvider)
         _translationStyle = State(initialValue: store.translationStyle)
@@ -56,6 +59,11 @@ public struct SettingsView: View {
 
             translationStyleSection
 
+            if offlineAvailability != nil {
+                Divider()
+                offlineSection
+            }
+
             Divider()
 
             licenseSection
@@ -75,6 +83,14 @@ public struct SettingsView: View {
         }
         .padding(20)
         .frame(width: 520)
+        .task {
+            offlineAvailability = await offlineTranslator?.availability()
+        }
+    }
+
+    /// 当前是否有可用的 AI key（决定土翻/装翻是否可用——离线只做正翻）。
+    private var aiAvailable: Bool {
+        !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     // MARK: - Sections
@@ -232,6 +248,8 @@ public struct SettingsView: View {
             Text("翻译风格")
                 .font(.subheadline)
             ForEach(TranslationStyle.allCases) { style in
+                let requiresAI = style != .natural
+                let isDisabled = requiresAI && !aiAvailable
                 Button {
                     translationStyle = style
                 } label: {
@@ -241,9 +259,20 @@ public struct SettingsView: View {
                             .foregroundStyle(translationStyle == style ? Color.accentColor : Color.secondary)
                             .frame(width: 16, height: 18)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text(style.title)
-                                .font(.body)
-                                .foregroundStyle(.primary)
+                            HStack(spacing: 6) {
+                                Text(style.title)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                if isDisabled {
+                                    Text("需 AI")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(Color.secondary.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
+                            }
                             Text(style.description)
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
@@ -252,7 +281,53 @@ public struct SettingsView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
+                .disabled(isDisabled)
+                .opacity(isDisabled ? 0.45 : 1)
             }
+            if !aiAvailable {
+                Text("未配置 AI key 时仅「正翻」可用（离线设备端翻译）。土翻 / 装翻需要 AI。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var offlineSection: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("离线翻译")
+                .font(.subheadline)
+            switch offlineAvailability {
+            case .ready:
+                Label("已就绪 · 无需联网即可使用「正翻」和 kebab 文件名", systemImage: "checkmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            case .needsDownload:
+                VStack(alignment: .leading, spacing: 4) {
+                    Label("需下载语言包", systemImage: "arrow.down.circle")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Text("在 系统设置 → 通用 → 语言与地区 → 翻译语言 中添加「中文」和「英文」后即可离线使用。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Button("打开系统设置") { openLanguageSettings() }
+                        .font(.caption)
+                }
+            case .unsupported, .none:
+                Label("当前系统不支持离线翻译（需 macOS 15+）", systemImage: "xmark.circle")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+
+    private func openLanguageSettings() {
+        let candidates = [
+            "x-apple.systempreferences:com.apple.Localization-Settings.extension",
+            "x-apple.systempreferences:com.apple.preference.general",
+        ]
+        for string in candidates {
+            if let url = URL(string: string), NSWorkspace.shared.open(url) { return }
         }
     }
 

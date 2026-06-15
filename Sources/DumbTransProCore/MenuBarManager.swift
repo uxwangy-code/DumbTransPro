@@ -166,11 +166,21 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             menu.addItem(NSMenuItem.separator())
         }
 
-        if !settingsStore.hasAPIKey {
+        switch currentMode() {
+        case .needsSetup:
             let warning = NSMenuItem(title: "⚠ 请先设置 API Key", action: nil, keyEquivalent: "")
             warning.isEnabled = false
             menu.addItem(warning)
             menu.addItem(NSMenuItem.separator())
+        case .offline:
+            // 无 key 但离线可用：不报警，引导而非冷拒绝
+            let info = NSMenuItem(title: "离线模式 · 免费可用（配置 AI 解锁土翻/装翻、划词更准）", action: #selector(openSettings), keyEquivalent: "")
+            info.image = menuSymbol("wifi.slash")
+            info.target = self
+            menu.addItem(info)
+            menu.addItem(NSMenuItem.separator())
+        case .ai:
+            break
         }
 
         if isTranslating {
@@ -214,7 +224,14 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         settings.target = self
         menu.addItem(settings)
 
-        let license = NSMenuItem(title: licenseManager.menuTitle, action: #selector(openSettings), keyEquivalent: "")
+        // 离线模式下「今日剩余 N 次」是 AI 额度，对没配 key 的人是误导——按模式显示正确文案
+        let licenseTitle: String
+        if currentMode() == .offline {
+            licenseTitle = licenseManager.tier == .pro ? "Pro 已激活（当前离线）" : "免费版 · 离线可用"
+        } else {
+            licenseTitle = licenseManager.menuTitle
+        }
+        let license = NSMenuItem(title: licenseTitle, action: #selector(openSettings), keyEquivalent: "")
         license.image = menuSymbol(licenseManager.tier == .pro ? "checkmark.seal" : "crown")
         license.target = self
         menu.addItem(license)
@@ -441,7 +458,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             backing: .buffered,
             defer: false
         )
-        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager, license: licenseManager) { [weak window] in
+        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager, license: licenseManager, offlineTranslator: offlineTranslator) { [weak window] in
             window?.close()
         }
         window.title = "瞎翻 Pro 设置"
