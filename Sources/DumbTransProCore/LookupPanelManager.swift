@@ -14,10 +14,17 @@ final class LookupPanelManager {
     private var slowHintTask: Task<Void, Never>?
     private var stateObservers: Set<AnyCancellable> = []
 
-    func show(originalText: String, settingsStore: SettingsStore, onSuccess: (() -> Void)? = nil) {
+    /// 展示划词翻译面板。翻译来源由调用方通过 `fetch` 注入（AI 或离线），
+    /// 面板本身不关心来源；`modelLabel` 显示在底栏（AI 显示模型名，离线显示「离线·设备端」）。
+    func show(
+        originalText: String,
+        modelLabel: String,
+        onSuccess: (() -> Void)? = nil,
+        fetch: @escaping @MainActor (String) async throws -> LookupResult
+    ) {
         close()
 
-        let state = LookupPanelState(originalText: originalText, modelName: settingsStore.model)
+        let state = LookupPanelState(originalText: originalText, modelName: modelLabel)
         state.onClose = { [weak self] in self?.close() }
         panelState = state
 
@@ -70,13 +77,8 @@ final class LookupPanelManager {
 
         translationTask = Task { [weak self, weak state] in
             guard let state else { return }
-            let service = TranslateService(
-                apiKey: settingsStore.apiKey,
-                baseURL: settingsStore.baseURL,
-                model: settingsStore.model
-            )
             do {
-                let result = try await service.lookup(originalText, style: settingsStore.translationStyle)
+                let result = try await fetch(originalText)
                 guard !Task.isCancelled else { return }
                 state.translation = result.text
                 state.didFallback = result.didFallback

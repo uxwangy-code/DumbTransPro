@@ -13,6 +13,8 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private let settingsStore = SettingsStore()
     private let licenseManager = LicenseManager()
     private let lookupPanelManager = LookupPanelManager()
+    /// 离线翻译引擎，仅 macOS 15+ 创建（启动即挂隐藏 host 预热 session）；13/14 为 nil。
+    private let offlineTranslator: (any OfflineTranslating)?
     private lazy var updateManager: UpdateManager = {
         let manager = UpdateManager()
         manager.onStateChange = { [weak self] in
@@ -40,6 +42,11 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     public override init() {
+        if #available(macOS 15, *) {
+            offlineTranslator = AppleTranslationService()
+        } else {
+            offlineTranslator = nil
+        }
         super.init()
         writeDebug("MenuBarManager init started")
         checkAccessibility(prompt: true)
@@ -289,23 +296,50 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         handleAction(action)
     }
 
+    /// 翻译模式判定：有 key → AI；无 key 但离线引擎就绪（macOS 15+）→ 离线；否则需配置。
+    private func currentMode() -> TranslationMode {
+        TranslationMode.resolve(
+            hasAPIKey: settingsStore.hasAPIKey,
+            offlineAvailable: offlineTranslator != nil
+        )
+    }
+
     private func handleLookup() {
-        guard settingsStore.hasAPIKey else {
+        let mode = currentMode()
+        guard mode != .needsSetup else {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
             return
         }
-        guard passesLicenseGate() else { return }
+        // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。
+        if mode == .ai {
+            guard passesLicenseGate() else { return }
+        }
         Task { @MainActor in
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
                 return
             }
-            lookupPanelManager.show(
-                originalText: selectedText,
-                settingsStore: settingsStore,
-                onSuccess: { [weak self] in self?.licenseManager.recordTranslation() }
-            )
+            switch mode {
+            case .ai:
+                let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
+                let style = settingsStore.translationStyle
+                lookupPanelManager.show(
+                    originalText: selectedText,
+                    modelLabel: settingsStore.model,
+                    onSuccess: { [weak self] in self?.licenseManager.recordTranslation() },
+                    fetch: { try await service.lookup($0, style: style) }
+                )
+            case .offline:
+                guard let engine = offlineTranslator else { return }
+                lookupPanelManager.show(
+                    originalText: selectedText,
+                    modelLabel: "离线翻译 · 设备端",
+                    fetch: { LookupResult(text: try await engine.lookupToChinese($0), didFallback: false) }
+                )
+            case .needsSetup:
+                return
+            }
         }
     }
 
@@ -331,11 +365,15 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
 
     private func handleRewriteToEnglish() {
         guard !isTranslating else { return }
-        guard settingsStore.hasAPIKey else {
+        let mode = currentMode()
+        guard mode != .needsSetup else {
             showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
             return
         }
-        guard passesLicenseGate() else { return }
+        // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。
+        if mode == .ai {
+            guard passesLicenseGate() else { return }
+        }
 
         isTranslating = true
         startSpinner()
@@ -349,10 +387,10 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 stopSpinner()
                 finishLoadingToast()
                 updateMenu()
-                writeDebug("handleRewriteToEnglish complete (\(style.title))")
+                writeDebug("handleRewriteToEnglish complete (\(mode), \(style.title))")
             }
 
-            writeDebug("Getting selected text... (style: \(style.title))")
+            writeDebug("Getting selected text... (mode: \(mode), style: \(style.title))")
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 writeDebug("No text selected")
@@ -361,14 +399,24 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             }
             writeDebug("Selected text: \(selectedText)")
 
-            writeDebug("Calling translate API (\(style.title))...")
-            let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
             do {
-                let result = try await service.translate(selectedText, style: style)
-                writeDebug("Translation result (\(style.title)): \(result)")
-                writeDebug("Pasting result...")
+                let result: String
+                switch mode {
+                case .ai:
+                    // AI 路径：与 v1.3 完全一致——同样的 service、style、计额度。
+                    let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
+                    result = try await service.translate(selectedText, style: style)
+                    licenseManager.recordTranslation()
+                case .offline:
+                    // 离线路径：引擎出纯英文，复用与 AI 相同的 词→kebab / 句→原文 分流。
+                    guard let engine = offlineTranslator else { return }
+                    let english = try await engine.rewriteToEnglish(selectedText)
+                    result = OfflineRewriteFormatter.format(originalInput: selectedText, english: english)
+                case .needsSetup:
+                    return
+                }
+                writeDebug("Translation result: \(result)")
                 await ClipboardManager.pasteText(result)
-                licenseManager.recordTranslation()
                 writeDebug("Paste complete")
             } catch {
                 writeDebug("Translation error: \(error)")
