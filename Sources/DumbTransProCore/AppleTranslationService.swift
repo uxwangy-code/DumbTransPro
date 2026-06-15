@@ -90,6 +90,12 @@ public final class AppleTranslationService: OfflineTranslating {
     }
 
     public func availability() async -> OfflineAvailability {
+        // QA 调试开关：强制模拟「未下载语言包」，便于在已装包的机器上体验首次下载引导流程。
+        // 开：defaults write com.whimsycode.dumbtrans-pro DebugForceOfflineNeedsDownload -bool YES
+        // 关：defaults delete com.whimsycode.dumbtrans-pro DebugForceOfflineNeedsDownload
+        if UserDefaults.standard.bool(forKey: "DebugForceOfflineNeedsDownload") {
+            return .needsDownload
+        }
         let availability = LanguageAvailability()
         let status = await availability.status(
             from: Locale.Language(identifier: "zh-Hans"),
