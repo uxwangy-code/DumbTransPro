@@ -19,14 +19,10 @@ public enum OfflineAvailability: Sendable, Equatable {
 }
 
 public enum OfflineTranslateError: Error, LocalizedError, Equatable {
-    case unavailable
-    case languageNotReady
     case failed(String)
 
     public var errorDescription: String? {
         switch self {
-        case .unavailable: return "离线翻译需要 macOS 15 或更高版本"
-        case .languageNotReady: return "离线翻译语言包尚未下载。可在 系统设置 → 通用 → 语言与地区 → 翻译语言 中添加中文与英文。"
         case .failed(let msg): return "离线翻译失败：\(msg)"
         }
     }
@@ -90,12 +86,6 @@ public final class AppleTranslationService: OfflineTranslating {
     }
 
     public func availability() async -> OfflineAvailability {
-        // QA 调试开关：强制模拟「未下载语言包」，便于在已装包的机器上体验首次下载引导流程。
-        // 开：defaults write com.whimsycode.dumbtrans-pro DebugForceOfflineNeedsDownload -bool YES
-        // 关：defaults delete com.whimsycode.dumbtrans-pro DebugForceOfflineNeedsDownload
-        if UserDefaults.standard.bool(forKey: "DebugForceOfflineNeedsDownload") {
-            return .needsDownload
-        }
         let availability = LanguageAvailability()
         let status = await availability.status(
             from: Locale.Language(identifier: "zh-Hans"),

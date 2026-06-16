@@ -350,7 +350,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             case .offline:
                 guard let engine = offlineTranslator else { return }
                 guard await engine.availability() == .ready else {
-                    showNotification(title: "离线翻译需要语言包", message: "首次使用请到 设置 → 离线翻译（或 系统设置 → 通用 → 语言与地区 → 翻译语言）下载中文与英文。")
+                    showNotification(title: "离线翻译需要语言包", message: "打开 设置 → 离线翻译，点「下载离线语言包」即可。一次下好，永久离线。")
                     return
                 }
                 lookupPanelManager.show(
