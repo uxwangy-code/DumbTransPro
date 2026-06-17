@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hans">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DumbTrans Pro — Select. Hit ⌘⇧R. It's English now.</title>
-<meta name="description" content="A tiny macOS menu bar translator for designers and developers. Select Chinese text in any app, press one hotkey, get kebab-case filenames or natural English. Bring your own AI key. Pay once.">
+<title>瞎翻 Pro — 选中，按 ⌘⇧R，秒变英文</title>
+<meta name="description" content="A tiny macOS menu bar translator for designers and developers. Select Chinese in any app, press one hotkey, get kebab-case filenames or natural English. Works offline with no API key on macOS 15+. Pay once, no subscription.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -57,6 +57,10 @@ a:focus-visible, button:focus-visible {
 .menubar .spacer { flex: 1; }
 .menubar a { color: var(--ink-soft); }
 .menubar a:hover { color: var(--ink); text-decoration: none; }
+.lang-toggle { display: inline-flex; border: 1px solid var(--hairline); border-radius: 7px; overflow: hidden; margin-left: 2px; }
+.lang-toggle button { font-family: var(--body); font-size: 12px; padding: 2px 9px; background: var(--card); border: none; color: var(--ink-soft); cursor: pointer; line-height: 1.5; }
+.lang-toggle button + button { border-left: 1px solid var(--hairline); }
+.lang-toggle button.active { background: var(--ink); color: var(--paper); }
 
 /* ── layout ──────────────────────────────────────── */
 .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
@@ -242,22 +246,25 @@ footer a:hover { color: var(--ink); }
 
 <nav class="menubar" aria-label="Site navigation">
   <span class="fish" aria-hidden="true">🐟</span>
-  <span class="appname">DumbTrans Pro</span>
+  <span class="appname" data-en="DumbTrans Pro">瞎翻 Pro</span>
   <span class="spacer"></span>
-  <a href="#how">How it works</a>
-  <a href="#styles">Styles</a>
-  <a href="#pricing">Pricing</a>
+  <a href="#how" data-en="How it works">用法</a>
+  <a href="#styles" data-en="Styles">风格</a>
+  <a href="#pricing" data-en="Pricing">价格</a>
   <a href="https://github.com/uxwangy-code/DumbTransPro">GitHub</a>
+  <span class="lang-toggle" role="group" aria-label="Language / 语言">
+    <button type="button" data-lang="zh">中</button><button type="button" data-lang="en">EN</button>
+  </span>
 </nav>
 
 <header class="hero wrap">
-  <h1>Select. Hit <span class="kbd">⌘⇧R</span>.<br>It's <span class="hl">English</span> now.</h1>
-  <p class="sub">A tiny macOS menu bar translator for designers and developers. It lives behind one hotkey, works in any app, and pastes the translation right back where your text was.</p>
+  <h1 data-en="Select. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It's <span class=&quot;hl&quot;>English</span> now.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">秒变英文</span>。</h1>
+  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. Works the moment you open it — on-device, no API key, no network. One hotkey, any app, pasted right back where your text was.">为设计师和开发者打造的 macOS 菜单栏小翻译器。装上就能用——设备端离线、无需 API key、不联网。一个快捷键，任何 app，译文原地替换。</p>
 
-  <div class="stage" role="img" aria-label="Demo: selected Chinese text 好好学习天天向上 transforms into the English filename study-hard-improve-daily after pressing command shift R">
+  <div class="stage" role="img" aria-label="演示：选中中文「好好学习天天向上」，按 ⌘⇧R 后变成英文文件名 study-hard-improve-daily">
     <div class="stage-bar">
       <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-      <span class="label">Anywhere on your Mac — Finder, Figma, your IDE, a search box</span>
+      <span class="label" data-en="Anywhere on your Mac — Finder, Figma, your IDE, a search box">Mac 上任何地方——访达、Figma、你的 IDE、搜索框</span>
     </div>
     <div class="stage-body">
       <span id="demo-text">好好学习天天向上</span>
@@ -266,153 +273,174 @@ footer a:hover { color: var(--ink); }
   </div>
 
   <div class="styles-toggle" role="group" aria-label="Translation style">
-    <button class="active" data-style="proper">Proper</button>
-    <button data-style="chinglish">Chinglish</button>
-    <button data-style="pretentious">Pretentious</button>
+    <button class="active" data-style="proper" data-en="Proper">正翻</button>
+    <button data-style="chinglish" data-en="Chinglish">土翻</button>
+    <button data-style="pretentious" data-en="Pretentious">装翻</button>
   </div>
 
   <div class="cta-row">
-    <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro">Get Pro — $6.99 launch price</a>
-    <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest">Download free version</a>
+    <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Get Pro — $6.99 launch price">入手 Pro · 首发 $6.99</a>
+    <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest" data-en="Download free version">下载免费版</a>
   </div>
-  <p class="cta-note">One-time purchase · macOS 13+ · Apple Silicon · bring your own AI key</p>
+  <p class="cta-note" data-en="Works offline, no key needed (macOS 15+) · Apple Silicon · one-time purchase, no subscription">离线即用、无需 key（macOS 15+）· 仅 Apple 芯片 · 一次买断、不订阅</p>
 </header>
 
 <section id="how" class="wrap">
-  <h2>Three seconds, start to finish</h2>
+  <h2 data-en="Three seconds, start to finish">从选中到搞定，三秒</h2>
   <div class="steps">
     <div class="step">
       <span class="n">1</span>
-      <h3>Select text</h3>
-      <p>Chinese you just typed: a filename, a variable name, a search keyword on Dribbble, a sentence in a chat box.</p>
+      <h3 data-en="Select text">选中文字</h3>
+      <p data-en="Chinese you just typed: a filename, a variable name, a search keyword on Dribbble, a sentence in a chat box.">你刚打的中文：一个文件名、一个变量名、Dribbble 上的搜索词、聊天框里的一句话。</p>
     </div>
     <div class="step">
       <span class="n">2</span>
-      <h3>Press <span class="kbd">⌘⇧R</span></h3>
-      <p>The fish in your menu bar blinks while your chosen AI model does the work. Usually under a second.</p>
+      <h3 data-en="Press <span class=&quot;kbd&quot;>⌘⇧R</span>">按 <span class="kbd">⌘⇧R</span></h3>
+      <p data-en="The fish in your menu bar blinks while it translates — on your Mac if you haven't added a key, or through your AI model if you have. Usually under a second.">菜单栏的小鱼闪一下就翻好了——没配 key 就在本机离线翻，配了 key 就走你的 AI 模型。通常不到一秒。</p>
     </div>
     <div class="step">
       <span class="n">3</span>
-      <h3>It's replaced</h3>
-      <p>Short phrases come back as <span class="kbd">kebab-case</span> ready for filenames and code. Sentences come back as natural English.</p>
+      <h3 data-en="It's replaced">原地替换</h3>
+      <p data-en="Short phrases come back as <span class=&quot;kbd&quot;>kebab-case</span> ready for filenames and code. Sentences come back as natural English.">短词组返回 <span class="kbd">kebab-case</span>，直接拿去当文件名和代码；句子返回自然英文。</p>
     </div>
   </div>
-  <p class="lookup-line">Reading, not writing? Select any English text and press <span class="kbd">⌘⇧F</span> — a floating panel shows the Chinese translation without leaving your app.</p>
+  <p class="lookup-line" data-en="Reading, not writing? Select any English text and press <span class=&quot;kbd&quot;>⌘⇧F</span> — a floating panel shows the Chinese translation without leaving your app.">在读、不在写？选中任意英文按 <span class="kbd">⌘⇧F</span>——浮窗直接给出中文，不用离开当前 app。</p>
 </section>
 
 <section id="styles" class="wrap">
-  <h2>Three translation styles. One of them is a joke.</h2>
+  <h2 data-en="Three translation styles. One of them is a joke.">三种翻译风格，其中一种纯属胡闹。</h2>
   <div class="style-cards">
     <div class="style-card">
-      <h3>Proper</h3>
-      <span class="tag">Default. Natural, accurate, what you actually ship.</span>
+      <h3 data-en="Proper">正翻</h3>
+      <span class="tag" data-en="Default. Natural, accurate, what you actually ship.">默认。自然、准确，真正能交付的那种。</span>
       <div class="pair">好好学习<br><span class="out">study-hard</span></div>
     </div>
     <div class="style-card chinglish">
-      <h3>Chinglish</h3>
-      <span class="tag">Word-for-word, the way your English teacher feared.</span>
+      <h3 data-en="Chinglish">土翻</h3>
+      <span class="tag" data-en="Word-for-word, the way your English teacher feared.">逐字硬翻，英语老师听了想报警。</span>
       <div class="pair">人山人海<br><span class="out">people-mountain-people-sea</span></div>
     </div>
     <div class="style-card">
-      <h3>Pretentious</h3>
-      <span class="tag">Classical Chinese and Latin, for when you must show off.</span>
+      <h3 data-en="Pretentious">装翻</h3>
+      <span class="tag" data-en="Classical Chinese and Latin, for when you must show off.">文言文加拉丁文，专治不服。</span>
       <div class="pair">项目<br><span class="out">opus-magnum</span></div>
     </div>
   </div>
 </section>
 
 <section class="wrap">
-  <h2>Your keys. Your data. No middleman.</h2>
+  <h2 data-en="On-device by default. Bring AI when you want it.">默认设备端。想用 AI 再用。</h2>
   <div class="privacy-grid">
     <div class="privacy-card">
-      <h3>Bring your own API key</h3>
-      <p>Connect your own account from OpenAI, DeepSeek, Zhipu and more. You pay your provider's rates directly — typically fractions of a cent per translation — instead of a markup subscription.</p>
+      <h3 data-en="Works offline, zero setup">离线即用，零配置</h3>
+      <p data-en="On macOS 15+, translation runs entirely on your Mac — natural English and kebab filenames with no API key, no account, no network. Open it and go.">macOS 15+ 上，翻译全程在你的 Mac 本机完成——自然英文和 kebab 文件名，无需 API key、无需账号、不联网。打开就用。</p>
     </div>
     <div class="privacy-card">
-      <h3>Your text never touches our servers</h3>
-      <p>There are no servers. Translation requests go straight from your Mac to the AI provider you chose. Keys live in the macOS Keychain. No analytics, no telemetry.</p>
+      <h3 data-en="Or bring your own AI key">或者，自带 AI key</h3>
+      <p data-en="Add an OpenAI, DeepSeek or Zhipu key to unlock the playful styles, sharper quality, and translation on macOS 13 / 14. You pay your provider directly — fractions of a cent — with no markup.">填上 OpenAI、DeepSeek 或智谱的 key，解锁趣味风格、更高质量，以及 macOS 13/14 上的翻译。费用直接付给服务商——每次翻译几分钱——没有加价。</p>
     </div>
     <div class="privacy-card">
-      <h3>Native Swift, not Electron</h3>
-      <p>Cold-starts instantly, idles at near-zero memory, and doesn't occupy a Dock slot. Just a small fish in your menu bar.</p>
+      <h3 data-en="Your text stays yours">你的文字，始终是你的</h3>
+      <p data-en="Offline, it never leaves your Mac. With a key, it goes straight to the provider you chose — never our servers (we have none). Keys live in the macOS Keychain. No analytics, no telemetry.">离线时，文字根本不出你的 Mac。配了 key，也是直连你选的服务商——永远不经过我们的服务器（我们根本没有服务器）。key 存在 macOS 钥匙串里。无统计、无埋点。</p>
     </div>
     <div class="privacy-card">
-      <h3>No subscription</h3>
-      <p>Pro is a one-time purchase. Updates ship through the built-in updater. If we disappear tomorrow, the app keeps working with your keys.</p>
+      <h3 data-en="Native, light, no subscription">原生、轻、不订阅</h3>
+      <p data-en="Native Swift, not Electron: instant cold-start, near-zero idle memory, no Dock slot. Pro is a one-time purchase — if we disappear tomorrow, it keeps working.">原生 Swift，不是 Electron：秒启动、闲时几乎不占内存、不占 Dock。Pro 一次买断——哪天我们消失了，它照样能用。</p>
     </div>
   </div>
-  <p class="providers">Works with: <span>OpenAI · Zhipu GLM · DeepSeek · Kimi · MiniMax · Qwen · Doubao · any OpenAI-compatible endpoint</span></p>
+  <p class="providers" data-en="Works with: <span>OpenAI · Zhipu GLM · DeepSeek · Kimi · MiniMax · Qwen · Doubao · any OpenAI-compatible endpoint</span>">支持：<span>OpenAI · 智谱 GLM · DeepSeek · Kimi · MiniMax · 通义千问 · 豆包 · 任意 OpenAI 兼容端点</span></p>
 </section>
 
 <section id="pricing" class="wrap">
-  <h2>Pay once. That's the whole pricing page.</h2>
+  <h2 data-en="Pay once. That's the whole pricing page.">一次买断。整个定价页就这么简单。</h2>
   <div class="plans">
     <div class="plan free">
-      <h3>Free</h3>
+      <h3 data-en="Free">免费版</h3>
       <div class="price">$0</div>
-      <div class="billing">forever</div>
+      <div class="billing" data-en="forever">永久</div>
       <ul>
-        <li>Both hotkeys, all three styles</li>
-        <li>OpenAI + Zhipu GLM (free-tier model available)</li>
-        <li>30 translations per day</li>
+        <li data-en="Offline translation — unlimited, no key (macOS 15+)">离线翻译——不限次、无需 key（macOS 15+）</li>
+        <li data-en="Both hotkeys · kebab filenames · lookup panel">两个快捷键 · kebab 文件名 · 划词浮窗</li>
+        <li data-en="Add a free key for Chinglish &amp; Pretentious — 30/day">填免费 key 解锁土翻 &amp; 装翻——每天 30 次</li>
       </ul>
-      <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest">Download</a>
+      <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest" data-en="Download">下载</a>
     </div>
     <div class="plan pro">
       <h3>Pro</h3>
       <div class="price">$6.99<span class="was">$14.99</span></div>
-      <div class="billing">one-time · launch price</div>
+      <div class="billing" data-en="one-time · launch price">一次买断 · 首发价</div>
       <ul>
-        <li>Everything in Free</li>
-        <li>All 8 providers + custom endpoints</li>
-        <li>Unlimited translations</li>
-        <li>A license key that works offline</li>
+        <li data-en="Everything in Free">免费版的全部</li>
+        <li data-en="All 8 AI providers + custom endpoints">全部 8 家 AI 服务商 + 自定义端点</li>
+        <li data-en="Unlimited AI translations, every style">AI 翻译不限次，全部风格</li>
+        <li data-en="One license for all your personal Macs">一份授权，你所有的 Mac</li>
       </ul>
-      <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro">Buy Pro</a>
+      <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Buy Pro">购买 Pro</a>
     </div>
   </div>
-  <p class="honesty">Honest note: the app's interface is currently in Simplified Chinese (the translations themselves go both ways). An English interface is on the roadmap. If that's a dealbreaker, the free version is a fine way to wait.</p>
+  <p class="honesty" data-en="Honest note: the app's interface is currently in Simplified Chinese (the translations themselves go both ways). An English interface is on the roadmap. If that's a dealbreaker, the free version is a fine way to wait.">实话：离线翻译需要 macOS 15 或更新系统；macOS 13 / 14 请自带 AI key。仅支持 Apple 芯片（M 系列）Mac。</p>
 </section>
 
 <section class="wrap faq">
-  <h2>Questions</h2>
+  <h2 data-en="Questions">常见问题</h2>
   <details>
-    <summary>I don't have an API key. Is that hard?</summary>
-    <p>No. Zhipu GLM gives you a free model (glm-4-flash) just for signing up — that's the default we recommend. Any OpenAI-compatible key works too. Setup is: paste key, done.</p>
+    <summary data-en="I don't have an API key. Is that a problem?">我没有 API key，有影响吗？</summary>
+    <p data-en="Not on macOS 15+. Translation works offline the moment you install it — Proper style and kebab filenames, no key, no account, no network. Want the Chinglish / Pretentious styles, or you're on macOS 13/14? A free Zhipu key (glm-4-flash) takes one paste.">macOS 15+ 完全没影响。装上就能离线翻——正翻 + kebab 文件名，无需 key、无需账号、不联网。想要土翻/装翻，或你在 macOS 13/14？填个免费的智谱 key（glm-4-flash），粘贴一下就行。</p>
   </details>
   <details>
-    <summary>Is my text private?</summary>
-    <p>Your selected text goes directly from your Mac to the AI provider you configured, using your key. The app has no servers and collects nothing. The only network calls we make are license verification (Gumroad) and update checks. Details in the <a href="privacy.html">privacy policy</a>.</p>
+    <summary data-en="Is my text private?">我的文字隐私吗？</summary>
+    <p data-en="Offline (macOS 15+, no key), translation is entirely on-device — your text never leaves your Mac. With a key, it goes directly from your Mac to the AI provider you configured. Either way the app has no servers and collects nothing; the only network calls are license verification (Gumroad) and update checks. Details in the <a href=&quot;privacy.html&quot;>privacy policy</a>.">离线时（macOS 15+、无 key），翻译全程在设备端——文字根本不出你的 Mac。配了 key，则直连你配置的 AI 服务商。无论哪种，app 都没有服务器、不收集任何东西；唯一的联网是授权校验（Gumroad）和检查更新。详见<a href="privacy.html">隐私政策</a>。</p>
   </details>
   <details>
-    <summary>How many Macs can I use a license on?</summary>
-    <p>Your personal Macs — work laptop and home machine are both fine. Licenses are per person, not per device.</p>
+    <summary data-en="How many Macs can I use a license on?">一份授权能用几台 Mac？</summary>
+    <p data-en="Your personal Macs — work laptop and home machine are both fine. Licenses are per person, not per device.">你自己的 Mac 都行——工作本和家里的机器都没问题。授权按人算，不按设备。</p>
   </details>
   <details>
-    <summary>What if it's not for me?</summary>
-    <p>Email us within 14 days for a full refund, no questions asked. See the <a href="refund.html">refund policy</a>.</p>
+    <summary data-en="What if it's not for me?">要是不合适呢？</summary>
+    <p data-en="Email us within 14 days for a full refund, no questions asked. See the <a href=&quot;refund.html&quot;>refund policy</a>.">14 天内邮件联系我们，全额退款，不问理由。见<a href="refund.html">退款政策</a>。</p>
   </details>
   <details>
-    <summary>Why "DumbTrans"?</summary>
-    <p>Because the Chinglish mode translates 加油 as "add-oil" and we refuse to apologize for it.</p>
+    <summary data-en="Why &quot;DumbTrans&quot;?">为什么叫「瞎翻」？</summary>
+    <p data-en="Because the Chinglish mode translates 加油 as &quot;add-oil&quot; and we refuse to apologize for it.">因为土翻模式会把「加油」翻成 add-oil，而我们拒绝为此道歉。</p>
   </details>
 </section>
 
 <footer>
   <div class="wrap">
     <div class="links">
-      <a href="terms.html">Terms of Service</a>
-      <a href="privacy.html">Privacy Policy</a>
-      <a href="refund.html">Refund Policy</a>
-      <a href="https://github.com/uxwangy-code/DumbTransPro">Source on GitHub</a>
-      <a href="mailto:hi@whimsycode.com">Contact / Feedback</a>
+      <a href="terms.html" data-en="Terms of Service">服务条款</a>
+      <a href="privacy.html" data-en="Privacy Policy">隐私政策</a>
+      <a href="refund.html" data-en="Refund Policy">退款政策</a>
+      <a href="https://github.com/uxwangy-code/DumbTransPro" data-en="Source on GitHub">GitHub 源码</a>
+      <a href="mailto:hi@whimsycode.com" data-en="Contact / Feedback">联系 / 反馈</a>
     </div>
-    <p>© 2026 WhimsyCode · DumbTrans Pro is an independent app. Not affiliated with any AI provider.</p>
-    <p>Questions or bug reports: <a href="mailto:hi@whimsycode.com">hi@whimsycode.com</a></p>
+    <p data-en="© 2026 WhimsyCode · DumbTrans Pro is an independent app. Not affiliated with any AI provider.">© 2026 WhimsyCode · 瞎翻 Pro 是一款独立 app，与任何 AI 服务商无关联。</p>
+    <p data-en="Questions or bug reports: <a href=&quot;mailto:hi@whimsycode.com&quot;>hi@whimsycode.com</a>">有问题或想报 bug：<a href="mailto:hi@whimsycode.com">hi@whimsycode.com</a></p>
   </div>
 </footer>
 
 <script>
+/* ── language toggle (中 / EN) ─────────────────────── */
+(function () {
+  var nodes = document.querySelectorAll("[data-en]");
+  nodes.forEach(function (el) { el.setAttribute("data-zh", el.innerHTML); });
+  var btns = document.querySelectorAll(".lang-toggle button");
+  function apply(lang) {
+    nodes.forEach(function (el) {
+      el.innerHTML = (lang === "en") ? el.getAttribute("data-en") : el.getAttribute("data-zh");
+    });
+    document.documentElement.lang = (lang === "en") ? "en" : "zh-Hans";
+    btns.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-lang") === lang); });
+    try { localStorage.setItem("dtp-lang", lang); } catch (e) {}
+  }
+  btns.forEach(function (b) {
+    b.addEventListener("click", function () { apply(b.getAttribute("data-lang")); });
+  });
+  var saved = "zh";
+  try { saved = localStorage.getItem("dtp-lang") || "zh"; } catch (e) {}
+  apply(saved);
+})();
+
 (function () {
   var outputs = {
     proper: "study-hard-improve-daily",
