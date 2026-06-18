@@ -71,7 +71,7 @@ section.wrap { padding: 80px 24px; }
 section + section { border-top: 1px solid var(--hairline); }
 
 /* ── hero ────────────────────────────────────────── */
-.hero { padding: 96px 0 80px; text-align: center; }
+.hero { padding: 96px 24px 80px; text-align: center; }
 .hero h1 {
   font-family: var(--display);
   font-size: clamp(34px, 6vw, 56px);
@@ -235,9 +235,15 @@ footer a:hover { color: var(--ink); }
 
 @media (max-width: 720px) {
   .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
-  .hero { padding: 64px 0 56px; }
+  .hero { padding: 64px 24px 56px; }
   section.wrap { padding: 56px 24px; }
   .stage-body { font-size: 19px; }
+  /* narrow screens: drop the menu-bar links (still in the footer) so the
+     brand + 中/EN toggle fit on one row and the toggle is never cut off */
+  .menubar a { display: none; }
+  /* stack the CTA buttons so they never overflow a phone width */
+  .cta-row { flex-direction: column; align-items: center; }
+  .cta-row .btn { width: 100%; max-width: 320px; text-align: center; }
 }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
