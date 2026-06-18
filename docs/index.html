@@ -64,7 +64,10 @@ a:focus-visible, button:focus-visible {
 
 /* ── layout ──────────────────────────────────────── */
 .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
-section { padding: 96px 0; }
+/* sections are also .wrap; .wrap (class) beats `section` (element) on
+   specificity, so vertical padding must be set on `section.wrap` or it gets
+   zeroed out and headings collide with the block above. */
+section.wrap { padding: 80px 24px; }
 section + section { border-top: 1px solid var(--hairline); }
 
 /* ── hero ────────────────────────────────────────── */
@@ -233,7 +236,7 @@ footer a:hover { color: var(--ink); }
 @media (max-width: 720px) {
   .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
   .hero { padding: 64px 0 56px; }
-  section { padding: 72px 0; }
+  section.wrap { padding: 56px 24px; }
   .stage-body { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) {
