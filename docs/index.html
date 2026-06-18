@@ -64,7 +64,7 @@ a:focus-visible, button:focus-visible {
 
 /* ── layout ──────────────────────────────────────── */
 .wrap { max-width: 880px; margin: 0 auto; padding: 0 24px; }
-section { padding: 72px 0; }
+section { padding: 96px 0; }
 section + section { border-top: 1px solid var(--hairline); }
 
 /* ── hero ────────────────────────────────────────── */
@@ -233,7 +233,7 @@ footer a:hover { color: var(--ink); }
 @media (max-width: 720px) {
   .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
   .hero { padding: 64px 0 56px; }
-  section { padding: 52px 0; }
+  section { padding: 72px 0; }
   .stage-body { font-size: 19px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -419,28 +419,8 @@ footer a:hover { color: var(--ink); }
   </div>
 </footer>
 
+<script src="lang.js"></script>
 <script>
-/* ── language toggle (中 / EN) ─────────────────────── */
-(function () {
-  var nodes = document.querySelectorAll("[data-en]");
-  nodes.forEach(function (el) { el.setAttribute("data-zh", el.innerHTML); });
-  var btns = document.querySelectorAll(".lang-toggle button");
-  function apply(lang) {
-    nodes.forEach(function (el) {
-      el.innerHTML = (lang === "en") ? el.getAttribute("data-en") : el.getAttribute("data-zh");
-    });
-    document.documentElement.lang = (lang === "en") ? "en" : "zh-Hans";
-    btns.forEach(function (b) { b.classList.toggle("active", b.getAttribute("data-lang") === lang); });
-    try { localStorage.setItem("dtp-lang", lang); } catch (e) {}
-  }
-  btns.forEach(function (b) {
-    b.addEventListener("click", function () { apply(b.getAttribute("data-lang")); });
-  });
-  var saved = "zh";
-  try { saved = localStorage.getItem("dtp-lang") || "zh"; } catch (e) {}
-  apply(saved);
-})();
-
 (function () {
   var outputs = {
     proper: "study-hard-improve-daily",

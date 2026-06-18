@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-Hans">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Privacy Policy — DumbTrans Pro</title>
+<title>隐私政策 — 瞎翻 Pro</title>
 <style>
-body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1D1D1F; background: #FBFBFD; line-height: 1.7; font-size: 16px; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", sans-serif; color: #1D1D1F; background: #FBFBFD; line-height: 1.7; font-size: 16px; }
 .wrap { max-width: 720px; margin: 0 auto; padding: 48px 24px 80px; }
 h1 { font-size: 28px; margin-bottom: 4px; }
 .updated { color: #6E6E73; font-size: 14px; margin-bottom: 36px; }
@@ -20,41 +20,43 @@ a:hover { text-decoration: underline; }
 </head>
 <body>
 <div class="wrap">
-<a class="back" href="index.html">← DumbTrans Pro</a>
-<h1>Privacy Policy</h1>
-<p class="updated">Last updated: June 11, 2026</p>
+<a class="back" href="index.html" data-en="← DumbTrans Pro">← 瞎翻 Pro</a>
+<h1 data-en="Privacy Policy">隐私政策</h1>
+<p class="updated" data-en="Last updated: June 11, 2026">最后更新：2026 年 6 月 11 日</p>
 
-<div class="tldr"><strong>Short version:</strong> DumbTrans Pro has no servers, no accounts, no analytics, and no telemetry. Your text goes directly from your Mac to the AI provider you configured. We never see it.</div>
+<div class="tldr" data-en="<strong>Short version:</strong> DumbTrans Pro has no servers, no accounts, no analytics, and no telemetry. Your text goes directly from your Mac to the AI provider you configured. We never see it."><strong>简版：</strong>瞎翻 Pro 没有服务器、没有账号、没有统计、没有埋点。你的文字直接从你的 Mac 发给你配置的 AI 服务商，我们永远看不到。离线模式下，文字根本不出你的设备。</div>
 
-<h2>What the App stores, and where</h2>
+<h2 data-en="What the App stores, and where">App 存什么、存在哪</h2>
 <ul>
-<li><strong>API keys</strong> you enter are stored in the macOS Keychain on your device. They are sent only to the corresponding AI provider's endpoint, never to us.</li>
-<li><strong>License keys</strong> are stored in the macOS Keychain on your device.</li>
-<li><strong>Settings</strong> (chosen provider, hotkeys, translation style, daily usage count for the free tier) are stored locally in macOS user defaults.</li>
-<li><strong>Your translated text</strong> is not stored by the App at all.</li>
+<li data-en="<strong>API keys</strong> you enter are stored in the macOS Keychain on your device. They are sent only to the corresponding AI provider's endpoint, never to us."><strong>你输入的 API key</strong> 存在你设备的 macOS 钥匙串里，只发给对应的 AI 服务商端点，绝不发给我们。</li>
+<li data-en="<strong>License keys</strong> are stored in the macOS Keychain on your device."><strong>License key</strong> 存在你设备的 macOS 钥匙串里。</li>
+<li data-en="<strong>Settings</strong> (chosen provider, hotkeys, translation style, daily usage count for the free tier) are stored locally in macOS user defaults."><strong>设置项</strong>（所选服务商、快捷键、翻译风格、免费版每日用量计数）存在本地 macOS user defaults 里。</li>
+<li data-en="<strong>Your translated text</strong> is not stored by the App at all."><strong>你的译文</strong>，App 根本不存储。</li>
 </ul>
 
-<h2>Network connections the App makes</h2>
+<h2 data-en="Network connections the App makes">App 会发起的网络连接</h2>
 <ul>
-<li><strong>Translation requests</strong> go directly from your Mac to the AI provider you selected (e.g. api.openai.com), authenticated with your own key, under that provider's privacy policy.</li>
-<li><strong>License verification</strong> sends your license key (and nothing else) to Gumroad's license API when you activate, and periodically thereafter.</li>
-<li><strong>Update checks</strong> fetch a standard appcast file from GitHub Pages via the Sparkle framework. This involves ordinary HTTP request metadata (such as your IP address, visible to GitHub) and no personal data from the App.</li>
+<li data-en="<strong>Offline translation (macOS 15+, no key)</strong> runs entirely on your device and makes no network request at all."><strong>离线翻译（macOS 15+、无 key）</strong>完全在你的设备上完成，不发起任何网络请求。</li>
+<li data-en="<strong>Translation requests</strong> (when you use an AI key) go directly from your Mac to the AI provider you selected (e.g. api.openai.com), authenticated with your own key, under that provider's privacy policy."><strong>翻译请求</strong>（使用 AI key 时）直接从你的 Mac 发给你选的 AI 服务商（如 api.openai.com），用你自己的 key 鉴权，遵循该服务商的隐私政策。</li>
+<li data-en="<strong>License verification</strong> sends your license key (and nothing else) to Gumroad's license API when you activate, and periodically thereafter."><strong>授权校验</strong>在你激活时（及之后定期）把你的 license key（仅此而已）发给 Gumroad 的授权 API。</li>
+<li data-en="<strong>Update checks</strong> fetch a standard appcast file from GitHub Pages via the Sparkle framework. This involves ordinary HTTP request metadata (such as your IP address, visible to GitHub) and no personal data from the App."><strong>检查更新</strong>通过 Sparkle 框架从 GitHub Pages 拉取标准 appcast 文件，只涉及普通 HTTP 请求元数据（如你的 IP，GitHub 可见），不含 App 的任何个人数据。</li>
 </ul>
 
-<h2>What we collect</h2>
-<p>Nothing. The App contains no analytics SDK, no crash reporter, and no tracking. If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.</p>
+<h2 data-en="What we collect">我们收集什么</h2>
+<p data-en="Nothing. The App contains no analytics SDK, no crash reporter, and no tracking. If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.">什么都不收。App 没有统计 SDK、没有崩溃上报、没有追踪。如果你发邮件找我们支持，我们会看到你的邮箱和你愿意告诉我们的内容，仅用于帮你解决问题。</p>
 
-<h2>Purchases</h2>
-<p>When you buy a license, the checkout is operated by Gumroad and/or Paddle. They process your payment details and email address under their own privacy policies; we receive your email address and license status so we can provide support.</p>
+<h2 data-en="Purchases">购买</h2>
+<p data-en="When you buy a license, the checkout is operated by Gumroad and/or Paddle. They process your payment details and email address under their own privacy policies; we receive your email address and license status so we can provide support.">购买 license 时，结账由 Gumroad 和/或 Paddle 运营，他们按各自的隐私政策处理你的支付信息和邮箱；我们会收到你的邮箱和授权状态，以便提供支持。</p>
 
-<h2>Children</h2>
-<p>The App is not directed at children under 13 and we do not knowingly collect data from them (we do not collect data from anyone).</p>
+<h2 data-en="Children">未成年人</h2>
+<p data-en="The App is not directed at children under 13 and we do not knowingly collect data from them (we do not collect data from anyone).">本 App 不面向 13 岁以下儿童，我们也不会有意收集他们的数据（我们不收集任何人的数据）。</p>
 
-<h2>Changes</h2>
-<p>If this policy changes materially, the new version will be posted here with an updated date.</p>
+<h2 data-en="Changes">变更</h2>
+<p data-en="If this policy changes materially, the new version will be posted here with an updated date.">若本政策有实质性变更，新版本会连同更新日期发布于此。</p>
 
-<h2>Contact</h2>
+<h2 data-en="Contact">联系</h2>
 <p><a href="mailto:ux.wangy@gmail.com">ux.wangy@gmail.com</a></p>
 </div>
+<script src="lang.js"></script>
 </body>
 </html>
