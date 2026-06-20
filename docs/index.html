@@ -141,6 +141,17 @@ section + section { border-top: 1px solid var(--hairline); }
 .styles-toggle button + button { border-left: 1px solid var(--hairline); }
 .styles-toggle button.active { background: var(--select-wash); color: var(--ink); font-weight: 600; }
 
+/* hero capability tabs (write English / look up Chinese) */
+.cap-tabs { display: inline-flex; border: 1px solid var(--hairline); border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+.cap-tabs .cap { font-family: var(--body); font-size: 14px; padding: 9px 20px; background: var(--card); border: none; cursor: pointer; color: var(--ink-soft); }
+.cap-tabs .cap + .cap { border-left: 1px solid var(--hairline); }
+.cap-tabs .cap.active { background: var(--ink); color: var(--paper); font-weight: 600; }
+/* lookup popover shown inside the demo stage (lookup mode only) */
+.demo-pop { display: none; margin: 2px 28px 26px; padding: 11px 16px; background: var(--card); border: 1px solid var(--hairline); border-radius: 10px; box-shadow: 0 10px 28px rgba(10,108,255,0.10); }
+.demo-pop.show { display: inline-block; }
+.demo-pop .pop-label { display: block; font-size: 11px; color: var(--ink-soft); margin-bottom: 3px; }
+.demo-pop .pop-out { font-size: 21px; color: var(--ink); }
+
 .cta-row { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 .btn {
   display: inline-block; font-size: 16px; font-weight: 600;
@@ -294,7 +305,12 @@ footer a:hover { color: var(--ink); }
   <h1 data-en="Select. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It's <span class=&quot;hl&quot;>English</span> now.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">秒变英文</span>。</h1>
   <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. Select Chinese to get English back in place; select English to get Chinese in a popover. Both happen right where you are, without leaving the app.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。选中中文一键变英文，选中英文一键出中文，都在你当前的 app 里就地完成。</p>
 
-  <div class="stage" role="img" aria-label="演示：选中中文「好好学习天天向上」，按 ⌘⇧R 后变成英文文件名 study-hard-improve-daily">
+  <div class="cap-tabs" role="tablist" aria-label="演示能力 / demo capability">
+    <button type="button" class="cap active" data-cap="rewrite" data-en="Write ⌘⇧R">写英文 ⌘⇧R</button>
+    <button type="button" class="cap" data-cap="lookup" data-en="Look up ⌘⇧F">划词 ⌘⇧F</button>
+  </div>
+
+  <div class="stage" role="img" aria-label="演示：选中文字按快捷键，写英文或划词查中文">
     <div class="stage-bar">
       <span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span class="label" data-en="Anywhere on your Mac: Finder, Figma, your IDE, a search box">Mac 上任何地方：访达、Figma、IDE、搜索框</span>
@@ -302,6 +318,10 @@ footer a:hover { color: var(--ink); }
     <div class="stage-body">
       <span id="demo-text">好好学习天天向上</span>
       <span id="demo-key">⌘⇧R</span>
+    </div>
+    <div class="demo-pop" aria-hidden="true">
+      <span class="pop-label" data-en="Lookup">划词翻译</span>
+      <span class="pop-out" id="demo-pop-out">好久不见</span>
     </div>
   </div>
 
@@ -467,29 +487,38 @@ footer a:hover { color: var(--ink); }
 <script src="lang.js"></script>
 <script>
 (function () {
-  var outputs = {
-    proper: "study-hard-improve-daily",
-    chinglish: "good-good-study-day-day-up",
-    pretentious: "per-studium-ad-astra"
+  var DEMOS = {
+    rewrite: {
+      key: "⌘⇧R",
+      source: "好好学习天天向上",
+      out: { proper: "study-hard-improve-daily", chinglish: "good-good-study-day-day-up", pretentious: "per-studium-ad-astra" }
+    },
+    lookup: {
+      key: "⌘⇧F",
+      source: "Long time no see",
+      out: { proper: "好久不见", chinglish: "老长时间没见了", pretentious: "久违矣，别来无恙" }
+    }
   };
-  var source = "好好学习天天向上";
-  var currentStyle = "proper";
+  var cap = "rewrite", style = "proper";
   var text = document.getElementById("demo-text");
   var key = document.getElementById("demo-key");
+  var pop = document.querySelector(".demo-pop");
+  var popOut = document.getElementById("demo-pop-out");
   var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var timer = null;
 
-  function setStatic() {
-    text.textContent = source + "  →  " + outputs[currentStyle];
-    text.className = "";
-  }
-
   function run() {
-    if (reduced) { setStatic(); return; }
     clearTimeout(timer);
-    text.textContent = source;
-    text.className = "";
-    key.className = "";
+    var d = DEMOS[cap];
+    text.className = ""; key.className = ""; pop.classList.remove("show");
+    key.textContent = d.key;
+    popOut.textContent = d.out[style];
+    if (reduced) {
+      if (cap === "rewrite") { text.textContent = d.source + "  →  " + d.out[style]; }
+      else { text.textContent = d.source; pop.classList.add("show"); }
+      return;
+    }
+    text.textContent = d.source;
     timer = setTimeout(function () {
       text.classList.add("selected");
       timer = setTimeout(function () {
@@ -497,20 +526,29 @@ footer a:hover { color: var(--ink); }
         timer = setTimeout(function () {
           key.classList.remove("pressed");
           text.classList.remove("selected");
-          text.classList.add("output");
-          text.textContent = outputs[currentStyle];
-          timer = setTimeout(run, 3200);
+          if (cap === "rewrite") { text.classList.add("output"); text.textContent = d.out[style]; }
+          else { pop.classList.add("show"); }
+          timer = setTimeout(run, 3400);
         }, 700);
       }, 900);
     }, 1100);
   }
 
-  var buttons = document.querySelectorAll(".styles-toggle button");
-  buttons.forEach(function (btn) {
+  document.querySelectorAll(".cap-tabs .cap").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      buttons.forEach(function (b) { b.classList.remove("active"); });
+      document.querySelectorAll(".cap-tabs .cap").forEach(function (b) { b.classList.remove("active"); });
       btn.classList.add("active");
-      currentStyle = btn.getAttribute("data-style");
+      cap = btn.getAttribute("data-cap");
+      run();
+    });
+  });
+
+  var styleButtons = document.querySelectorAll(".styles-toggle button");
+  styleButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      styleButtons.forEach(function (b) { b.classList.remove("active"); });
+      btn.classList.add("active");
+      style = btn.getAttribute("data-style");
       run();
     });
   });
