@@ -183,15 +183,9 @@ h2 {
 
 .lookup-line { margin-top: 28px; font-size: 15px; color: var(--ink-soft); }
 
-/* second capability: lookup (English → Chinese) demo */
-.lookup-demo {
-  margin-top: 44px; padding-top: 36px; border-top: 1px dashed var(--hairline);
-  display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center;
-}
-.lookup-copy h3 { font-size: 19px; margin-bottom: 8px; }
-.lookup-copy p { font-size: 15px; color: var(--ink-soft); }
+/* lookup panel mock, centered below the 划词读中文 steps */
 .lookup-panel {
-  justify-self: center; width: 100%; max-width: 340px;
+  margin: 40px auto 0; width: 100%; max-width: 360px;
   background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 14px 36px rgba(10,108,255,0.08);
   overflow: hidden;
@@ -269,7 +263,7 @@ footer a { color: var(--ink-soft); }
 footer a:hover { color: var(--ink); }
 
 @media (max-width: 720px) {
-  .steps, .style-cards, .privacy-grid, .plans, .lookup-demo { grid-template-columns: 1fr; }
+  .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
   .hero { padding: 64px 24px 56px; }
   section.wrap { padding: 56px 24px; }
   .stage-body { font-size: 19px; }
@@ -339,7 +333,7 @@ footer a:hover { color: var(--ink); }
 </header>
 
 <section id="how" class="wrap">
-  <h2 data-en="Three seconds, start to finish">从选中到搞定，三秒</h2>
+  <h2 data-en="Write English by typing Chinese">用中文写英文</h2>
   <div class="steps">
     <div class="step">
       <span class="n">1</span>
@@ -357,18 +351,33 @@ footer a:hover { color: var(--ink); }
       <p data-en="Short phrases come back as <span class=&quot;kbd&quot;>kebab-case</span> ready for filenames and code. Sentences come back as natural English.">短词组返回 <span class="kbd">kebab-case</span>，直接拿去当文件名和代码；句子返回自然英文。</p>
     </div>
   </div>
-  <div class="lookup-demo">
-    <div class="lookup-copy">
-      <h3 data-en="The other direction: read English, get Chinese">反过来：读英文，划词出中文</h3>
-      <p data-en="Reading, not writing? Select any English text and press <span class=&quot;kbd&quot;>⌘⇧F</span>. A floating panel gives you the Chinese on the spot, with no switch to a translation app and no leaving what you're reading.">在读、不在写？选中任意英文按 <span class="kbd">⌘⇧F</span>，一个浮窗就地给出中文。不用切到翻译软件，也不用离开你正在读的东西。</p>
+</section>
+
+<section id="lookup" class="wrap">
+  <h2 data-en="Read English, look it up in Chinese">划词读中文</h2>
+  <div class="steps">
+    <div class="step">
+      <span class="n">1</span>
+      <h3 data-en="Select English">选中英文</h3>
+      <p data-en="Any English you're reading: a doc, an error message, a web page, a message someone sent you.">你正在读的任意英文：一份文档、一条报错、一个网页、别人发来的消息。</p>
     </div>
-    <div class="lookup-panel" role="img" aria-label="划词翻译浮窗演示：Long time no see 译为 好久不见">
-      <div class="lp-head"><span data-en="Lookup">划词翻译</span><span class="lp-x" aria-hidden="true">✕</span></div>
-      <div class="lp-src">Long time no see</div>
-      <div class="lp-div"></div>
-      <div class="lp-out">好久不见</div>
-      <div class="lp-foot" data-en="Offline · on-device">离线 · 设备端</div>
+    <div class="step">
+      <span class="n">2</span>
+      <h3 data-en="Press <span class=&quot;kbd&quot;>⌘⇧F</span>">按 <span class="kbd">⌘⇧F</span></h3>
+      <p data-en="No copy-paste, no switching to a translation app, no leaving the app you're in.">不用复制，不用切到翻译软件，也不用离开当前 app。</p>
     </div>
+    <div class="step">
+      <span class="n">3</span>
+      <h3 data-en="A popover gives you Chinese">浮窗给中文</h3>
+      <p data-en="A floating panel shows the Chinese right there, in the same three styles: Proper, Chinglish, Pretentious.">一个浮窗就地显示中文，同样有正翻、土翻、装翻三种风格。</p>
+    </div>
+  </div>
+  <div class="lookup-panel" role="img" aria-label="划词翻译浮窗演示：Long time no see 译为 好久不见">
+    <div class="lp-head"><span data-en="Lookup">划词翻译</span><span class="lp-x" aria-hidden="true">✕</span></div>
+    <div class="lp-src">Long time no see</div>
+    <div class="lp-div"></div>
+    <div class="lp-out">好久不见</div>
+    <div class="lp-foot" data-en="Offline · on-device">离线 · 设备端</div>
   </div>
 </section>
 
