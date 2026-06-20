@@ -172,6 +172,30 @@ h2 {
 
 .lookup-line { margin-top: 28px; font-size: 15px; color: var(--ink-soft); }
 
+/* second capability: lookup (English → Chinese) demo */
+.lookup-demo {
+  margin-top: 44px; padding-top: 36px; border-top: 1px dashed var(--hairline);
+  display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: center;
+}
+.lookup-copy h3 { font-size: 19px; margin-bottom: 8px; }
+.lookup-copy p { font-size: 15px; color: var(--ink-soft); }
+.lookup-panel {
+  justify-self: center; width: 100%; max-width: 340px;
+  background: var(--card); border: 1px solid var(--hairline); border-radius: var(--radius);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 14px 36px rgba(10,108,255,0.08);
+  overflow: hidden;
+}
+.lp-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 14px; border-bottom: 1px solid var(--hairline);
+  font-size: 12px; color: var(--ink-soft);
+}
+.lp-head .lp-x { opacity: 0.4; }
+.lp-src { padding: 14px 16px 10px; font-size: 14px; color: var(--ink-soft); }
+.lp-div { height: 1px; background: var(--hairline); margin: 0 16px; }
+.lp-out { padding: 13px 16px 4px; font-size: 21px; color: var(--ink); }
+.lp-foot { padding: 0 16px 13px; font-size: 12px; color: var(--ink-soft); text-align: right; }
+
 /* three styles cards */
 .style-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
 .style-card {
@@ -234,7 +258,7 @@ footer a { color: var(--ink-soft); }
 footer a:hover { color: var(--ink); }
 
 @media (max-width: 720px) {
-  .steps, .style-cards, .privacy-grid, .plans { grid-template-columns: 1fr; }
+  .steps, .style-cards, .privacy-grid, .plans, .lookup-demo { grid-template-columns: 1fr; }
   .hero { padding: 64px 24px 56px; }
   section.wrap { padding: 56px 24px; }
   .stage-body { font-size: 19px; }
@@ -268,7 +292,7 @@ footer a:hover { color: var(--ink); }
 
 <header class="hero wrap">
   <h1 data-en="Select. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It's <span class=&quot;hl&quot;>English</span> now.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">秒变英文</span>。</h1>
-  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. One hotkey, any app: your text comes back in English right where you selected it.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。一个快捷键，在任何 app 里把选中的中文原地换成英文。</p>
+  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. Select Chinese to get English back in place; select English to get Chinese in a popover. Both happen right where you are, without leaving the app.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。选中中文一键变英文，选中英文一键出中文，都在你当前的 app 里就地完成。</p>
 
   <div class="stage" role="img" aria-label="演示：选中中文「好好学习天天向上」，按 ⌘⇧R 后变成英文文件名 study-hard-improve-daily">
     <div class="stage-bar">
@@ -313,7 +337,19 @@ footer a:hover { color: var(--ink); }
       <p data-en="Short phrases come back as <span class=&quot;kbd&quot;>kebab-case</span> ready for filenames and code. Sentences come back as natural English.">短词组返回 <span class="kbd">kebab-case</span>，直接拿去当文件名和代码；句子返回自然英文。</p>
     </div>
   </div>
-  <p class="lookup-line" data-en="Reading, not writing? Select any English text and press <span class=&quot;kbd&quot;>⌘⇧F</span>. A floating panel shows the Chinese without pulling you out of your app.">在读、不在写？选中任意英文按 <span class="kbd">⌘⇧F</span>，浮窗直接给出中文，不用离开当前 app。</p>
+  <div class="lookup-demo">
+    <div class="lookup-copy">
+      <h3 data-en="The other direction: read English, get Chinese">反过来：读英文，划词出中文</h3>
+      <p data-en="Reading, not writing? Select any English text and press <span class=&quot;kbd&quot;>⌘⇧F</span>. A floating panel gives you the Chinese on the spot, with no switch to a translation app and no leaving what you're reading.">在读、不在写？选中任意英文按 <span class="kbd">⌘⇧F</span>，一个浮窗就地给出中文。不用切到翻译软件，也不用离开你正在读的东西。</p>
+    </div>
+    <div class="lookup-panel" role="img" aria-label="划词翻译浮窗演示：Long time no see 译为 好久不见">
+      <div class="lp-head"><span data-en="Lookup">划词翻译</span><span class="lp-x" aria-hidden="true">✕</span></div>
+      <div class="lp-src">Long time no see</div>
+      <div class="lp-div"></div>
+      <div class="lp-out">好久不见</div>
+      <div class="lp-foot" data-en="Offline · on-device">离线 · 设备端</div>
+    </div>
+  </div>
 </section>
 
 <section id="styles" class="wrap">
