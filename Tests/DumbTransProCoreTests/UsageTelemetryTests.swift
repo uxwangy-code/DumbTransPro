@@ -144,6 +144,52 @@ struct UsageTelemetryTests {
         #expect(!body.localizedCaseInsensitiveContains("clipboard"))
     }
 
+    @Test func clientRetriesOneTransientNetworkFailureWithLongerTimeout() async throws {
+        TelemetryURLProtocol.reset()
+        TelemetryURLProtocol.mockErrors = [URLError(.timedOut)]
+        TelemetryURLProtocol.mockResponseData = Data("{}".utf8)
+        TelemetryURLProtocol.mockStatusCode = 202
+
+        let client = UsageTelemetryClient(
+            endpoint: URL(string: "https://example.com/events")!,
+            session: makeTestSession(),
+            context: UsageTelemetryContext(appVersion: "1.4.0 (120)", macOSVersion: "macOS 15.5"),
+            now: { Date(timeIntervalSince1970: 0) },
+            retryDelayNanoseconds: 0
+        )
+
+        await client.send(.appLaunched(licenseTier: .pro), isEnabled: true)
+
+        #expect(TelemetryURLProtocol.allRequests.count == 2)
+        #expect(TelemetryURLProtocol.allRequestBodies.count == 2)
+        #expect(TelemetryURLProtocol.allRequests.allSatisfy { $0.timeoutInterval == 15 })
+
+        let payload = try payloadJSON()
+        let event = try #require(payload["event"] as? [String: Any])
+        #expect(event["name"] as? String == "app_launched")
+        #expect(event["licenseTier"] as? String == "pro")
+    }
+
+    @Test func clientDoesNotRetryRejectedPayloads() async throws {
+        TelemetryURLProtocol.reset()
+        TelemetryURLProtocol.mockResponseData = Data("{\"error\":\"invalid_payload\"}".utf8)
+        TelemetryURLProtocol.mockStatusCode = 400
+
+        let client = UsageTelemetryClient(
+            endpoint: URL(string: "https://example.com/events")!,
+            session: makeTestSession(),
+            context: UsageTelemetryContext(appVersion: "1.4.0 (120)", macOSVersion: "macOS 15.5"),
+            now: { Date(timeIntervalSince1970: 0) },
+            retryDelayNanoseconds: 0
+        )
+
+        await client.send(.appLaunched(licenseTier: .free), isEnabled: true)
+
+        #expect(TelemetryURLProtocol.allRequests.count == 1)
+        #expect(TelemetryURLProtocol.allRequestBodies.count == 1)
+        #expect(TelemetryURLProtocol.allRequests.first?.timeoutInterval == 15)
+    }
+
     @Test func providerValuesAvoidInternalOrEndpointDetails() {
         #expect(UsageTelemetryProvider(provider: .openai) == .openai)
         #expect(UsageTelemetryProvider(provider: .custom) == .custom)
@@ -163,23 +209,33 @@ struct UsageTelemetryTests {
 final class TelemetryURLProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var mockResponseData: Data?
     nonisolated(unsafe) static var mockStatusCode: Int = 202
+    nonisolated(unsafe) static var mockErrors: [Error] = []
     nonisolated(unsafe) static var lastRequestBody: Data?
     nonisolated(unsafe) static var allRequestBodies: [Data] = []
+    nonisolated(unsafe) static var allRequests: [URLRequest] = []
 
     static func reset() {
         mockResponseData = nil
         mockStatusCode = 202
+        mockErrors = []
         lastRequestBody = nil
         allRequestBodies = []
+        allRequests = []
     }
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
 
     override func startLoading() {
+        Self.allRequests.append(request)
         let body = request.httpBody ?? Self.readBodyStream(from: request)
         Self.lastRequestBody = body
         if let body { Self.allRequestBodies.append(body) }
+
+        if !Self.mockErrors.isEmpty {
+            client?.urlProtocol(self, didFailWithError: Self.mockErrors.removeFirst())
+            return
+        }
 
         let response = HTTPURLResponse(
             url: request.url!,

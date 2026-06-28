@@ -239,10 +239,14 @@ private struct UsageTelemetryPayload: Codable, Sendable {
 }
 
 public final class UsageTelemetryClient: @unchecked Sendable {
+    private static let requestTimeout: TimeInterval = 15
+    private static let maxAttempts = 2
+
     private let endpoint: URL?
     private let session: URLSession
     private let context: UsageTelemetryContext
     private let now: @Sendable () -> Date
+    private let retryDelayNanoseconds: UInt64
 
     public init(
         endpoint: URL? = UsageTelemetryClient.endpointURL(),
@@ -254,6 +258,21 @@ public final class UsageTelemetryClient: @unchecked Sendable {
         self.session = session
         self.context = context
         self.now = now
+        self.retryDelayNanoseconds = 750_000_000
+    }
+
+    init(
+        endpoint: URL?,
+        session: URLSession,
+        context: UsageTelemetryContext,
+        now: @escaping @Sendable () -> Date,
+        retryDelayNanoseconds: UInt64
+    ) {
+        self.endpoint = endpoint
+        self.session = session
+        self.context = context
+        self.now = now
+        self.retryDelayNanoseconds = retryDelayNanoseconds
     }
 
     public static func endpointURL(bundle: Bundle = .main) -> URL? {
@@ -293,27 +312,73 @@ public final class UsageTelemetryClient: @unchecked Sendable {
         )
 
         do {
-            var request = URLRequest(url: endpoint, timeoutInterval: 5)
-            request.httpMethod = "POST"
-            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-            request.setValue("application/json", forHTTPHeaderField: "Accept")
-            request.httpBody = try JSONEncoder().encode(payload)
-            let (_, response) = try await session.data(for: request)
-            let statusCode = (response as? HTTPURLResponse)?.statusCode ?? 0
-            if (200..<300).contains(statusCode) {
-                writeLocalDebug("sent event=\(event.name.rawValue) status=\(statusCode)")
-                usageTelemetryLogger.info("Sent usage event: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public)")
-            } else {
-                writeLocalDebug("rejected event=\(event.name.rawValue) status=\(statusCode)")
-                usageTelemetryLogger.error("Usage event rejected: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public)")
-            }
+            let body = try JSONEncoder().encode(payload)
+            await sendWithRetry(event: event, endpoint: endpoint, body: body)
         } catch {
             // Usage telemetry is best-effort and must never affect translation.
             let nsError = error as NSError
             writeLocalDebug("failed event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code)")
             usageTelemetryLogger.error("Usage event failed: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public)")
         }
+    }
+
+    private func sendWithRetry(event: UsageTelemetryEvent, endpoint: URL, body: Data) async {
+        for attempt in 1...Self.maxAttempts {
+            do {
+                let statusCode = try await sendOnce(endpoint: endpoint, body: body)
+                if (200..<300).contains(statusCode) {
+                    writeLocalDebug("sent event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
+                    usageTelemetryLogger.info("Sent usage event: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
+                    return
+                }
+
+                let shouldRetry = Self.shouldRetry(statusCode: statusCode) && attempt < Self.maxAttempts
+                if shouldRetry {
+                    writeLocalDebug("retrying event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
+                    usageTelemetryLogger.debug("Retrying usage event: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
+                    await waitBeforeRetry()
+                    continue
+                }
+
+                writeLocalDebug("rejected event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
+                usageTelemetryLogger.error("Usage event rejected: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
+                return
+            } catch {
+                let nsError = error as NSError
+                let shouldRetry = attempt < Self.maxAttempts
+                if shouldRetry {
+                    writeLocalDebug("retrying event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code) attempt=\(attempt)")
+                    usageTelemetryLogger.debug("Retrying usage event: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public), attempt: \(attempt, privacy: .public)")
+                    await waitBeforeRetry()
+                    continue
+                }
+
+                writeLocalDebug("failed event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code) attempt=\(attempt)")
+                usageTelemetryLogger.error("Usage event failed: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public), attempt: \(attempt, privacy: .public)")
+                return
+            }
+        }
+    }
+
+    private func sendOnce(endpoint: URL, body: Data) async throws -> Int {
+        var request = URLRequest(url: endpoint, timeoutInterval: Self.requestTimeout)
+        request.httpMethod = "POST"
+        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.httpBody = body
+
+        let (_, response) = try await session.data(for: request)
+        return (response as? HTTPURLResponse)?.statusCode ?? 0
+    }
+
+    private static func shouldRetry(statusCode: Int) -> Bool {
+        statusCode == 408 || statusCode == 429 || (500..<600).contains(statusCode)
+    }
+
+    private func waitBeforeRetry() async {
+        guard retryDelayNanoseconds > 0 else { return }
+        try? await Task.sleep(nanoseconds: retryDelayNanoseconds)
     }
 
     private func writeLocalDebug(_ message: String) {
