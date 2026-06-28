@@ -1,6 +1,6 @@
 import Foundation
 
-public enum LicenseTier: String, Sendable, Equatable {
+public enum LicenseTier: String, Codable, Sendable, Equatable {
     case free
     case pro
 }

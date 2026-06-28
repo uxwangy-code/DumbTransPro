@@ -481,6 +481,24 @@ public struct SettingsView: View {
 
             Divider()
 
+            VStack(alignment: .leading, spacing: 8) {
+                Text("匿名使用数据")
+                    .font(.subheadline)
+                Toggle(isOn: Binding(
+                    get: { store.shareAnonymousUsageData },
+                    set: { store.setShareAnonymousUsageData($0) }
+                )) {
+                    Text("发送匿名使用数据")
+                }
+                .toggleStyle(.switch)
+                Text("用于帮助我们改进服务。只发送匿名使用状态，不发送原文、译文、API Key、License Key、剪贴板、用户输入或个人身份信息。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+
+            Divider()
+
             VStack(alignment: .leading, spacing: 10) {
                 Text("关于")
                     .font(.subheadline)

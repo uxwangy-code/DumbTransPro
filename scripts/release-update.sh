@@ -17,6 +17,7 @@ Environment:
   DUMBTRANS_SPARKLE_KEY_ACCOUNT       Keychain account for Sparkle EdDSA key.
   DUMBTRANS_SPARKLE_PUBLIC_ED_KEY     Sparkle public key override. Required in CI if Keychain is unavailable.
   DUMBTRANS_SPARKLE_FEED_URL          Appcast URL embedded in the app.
+  DUMBTRANS_USAGE_TELEMETRY_URL       Anonymous usage event endpoint embedded in the app.
   DUMBTRANS_SPARKLE_DOWNLOAD_URL_PREFIX  URL prefix for update zip downloads.
   DUMBTRANS_SPARKLE_ED_KEY_FILE       Private EdDSA key file for generate_appcast.
   DUMBTRANS_APPCAST_PATH              Appcast file to write in the repo.

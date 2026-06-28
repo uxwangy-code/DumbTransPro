@@ -16,6 +16,7 @@ struct SettingsPanelModelTests {
             "pro",
             "feedback-about",
         ])
+        #expect(SettingsPanelSection.feedbackAbout.summary == "邮件反馈、匿名使用数据、版本、官网、GitHub、隐私")
     }
 
     @Test func sidebarItemStateMarksSelectedSection() {

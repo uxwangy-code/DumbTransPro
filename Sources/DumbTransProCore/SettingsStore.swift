@@ -9,6 +9,7 @@ private let legacyCustomModelKey = "customModel"
 private let activeProviderKey = "activeProvider"
 private let providerOverridesKey = "providerOverrides"
 private let translationStyleKey = "translationStyle"
+private let shareAnonymousUsageDataKey = "shareAnonymousUsageData"
 
 public struct ModelPreset: Sendable, Hashable {
     public let id: String
@@ -217,6 +218,7 @@ public struct ProviderConfig: Sendable, Equatable, Codable {
 public final class SettingsStore: ObservableObject {
     @Published public private(set) var activeProvider: AIProvider?
     @Published public var translationStyle: TranslationStyle = .natural
+    @Published public private(set) var shareAnonymousUsageData: Bool = false
     @Published public private(set) var hotkeys: [TranslationAction: HotkeyConfig?] = [:]
 
     private var configs: [AIProvider: ProviderConfig] = [:]
@@ -260,6 +262,12 @@ public final class SettingsStore: ObservableObject {
             translationStyle = style
         } else {
             translationStyle = .natural
+        }
+
+        if defaults.object(forKey: shareAnonymousUsageDataKey) == nil {
+            shareAnonymousUsageData = true
+        } else {
+            shareAnonymousUsageData = defaults.bool(forKey: shareAnonymousUsageDataKey)
         }
     }
 
@@ -324,6 +332,11 @@ public final class SettingsStore: ObservableObject {
     public func setTranslationStyle(_ style: TranslationStyle) {
         translationStyle = style
         defaults.set(style.rawValue, forKey: translationStyleKey)
+    }
+
+    public func setShareAnonymousUsageData(_ isEnabled: Bool) {
+        shareAnonymousUsageData = isEnabled
+        defaults.set(isEnabled, forKey: shareAnonymousUsageDataKey)
     }
 
     public var apiKey: String {
