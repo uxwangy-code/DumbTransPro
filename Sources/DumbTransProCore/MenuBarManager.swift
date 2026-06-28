@@ -302,7 +302,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private func handleAction(_ action: TranslationAction) {
         switch action {
         case .rewriteToEnglish:
-            handleRewriteToEnglish()
+            handleBilingualInPlaceTranslation()
         case .lookup:
             handleLookup()
         }
@@ -356,7 +356,14 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 lookupPanelManager.show(
                     originalText: selectedText,
                     modelLabel: "离线翻译 · 设备端",
-                    fetch: { LookupResult(text: try await engine.lookupToChinese($0), didFallback: false) }
+                    fetch: {
+                        let text = $0
+                        let output = try await engine.lookupToChinese(text)
+                        return LookupResult(
+                            text: TextFormatter.repairForeignToChineseTranslation(source: text, translation: output),
+                            didFallback: false
+                        )
+                    }
                 )
             case .needsSetup:
                 return
@@ -384,7 +391,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         }
     }
 
-    private func handleRewriteToEnglish() {
+    private func handleBilingualInPlaceTranslation() {
         guard !isTranslating else { return }
         let mode = currentMode()
         guard mode != .needsSetup else {
@@ -408,10 +415,10 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 stopSpinner()
                 finishLoadingToast()
                 updateMenu()
-                writeDebug("handleRewriteToEnglish complete (\(mode), \(style.title))")
+                writeDebug("handleBilingualInPlaceTranslation complete (\(mode), \(style.title))")
             }
 
-            writeDebug("Getting selected text... (mode: \(mode), style: \(style.title))")
+            writeDebug("Getting selected text for handleBilingualInPlaceTranslation... (mode: \(mode), style: \(style.title))")
             guard let selectedText = await ClipboardManager.getSelectedText(),
                   !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 writeDebug("No text selected")
@@ -421,22 +428,32 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             writeDebug("Selected text: \(selectedText)")
 
             do {
+                let direction = TextFormatter.rewriteDirection(for: selectedText)
                 let result: String
                 switch mode {
                 case .ai:
-                    // AI 路径：与 v1.3 完全一致——同样的 service、style、计额度。
                     let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
-                    result = try await service.translate(selectedText, style: style)
+                    switch direction {
+                    case .chineseToEnglish:
+                        result = try await service.translate(selectedText, style: style)
+                    case .foreignToChinese:
+                        result = try await service.translateToChinese(selectedText, style: style)
+                    }
                     licenseManager.recordTranslation()
                 case .offline:
-                    // 离线路径：引擎出纯英文，复用与 AI 相同的 词→kebab / 句→原文 分流。
                     guard let engine = offlineTranslator else { return }
                     guard await engine.availability() == .ready else {
                         showNotification(title: "离线翻译需要语言包", message: "打开 设置 → 离线翻译，点「下载离线语言包」即可。一次下好，永久离线。")
                         return
                     }
-                    let english = try await engine.rewriteToEnglish(selectedText)
-                    result = OfflineRewriteFormatter.format(originalInput: selectedText, english: english)
+                    switch direction {
+                    case .chineseToEnglish:
+                        let english = try await engine.rewriteToEnglish(selectedText)
+                        result = OfflineRewriteFormatter.format(originalInput: selectedText, english: english)
+                    case .foreignToChinese:
+                        let chinese = try await engine.lookupToChinese(selectedText)
+                        result = TextFormatter.repairForeignToChineseTranslation(source: selectedText, translation: chinese)
+                    }
                 case .needsSetup:
                     return
                 }

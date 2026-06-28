@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>瞎翻 Pro — 选中，按 ⌘⇧R，秒变英文</title>
-<meta name="description" content="A tiny macOS menu bar translator for designers and developers. Select Chinese in any app, press one hotkey, get kebab-case filenames or natural English. Works offline with no API key on macOS 15+. Pay once, no subscription.">
+<title>瞎翻 Pro — 中英文原地互转</title>
+<meta name="description" content="A tiny macOS menu bar translator for designers and developers. Select Chinese or English in any app, press one hotkey, and translate in place. Get kebab-case filenames or natural Chinese/English right where you are. Works offline with no API key on macOS 15+. Pay once, no subscription.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -296,21 +296,21 @@ footer a:hover { color: var(--ink); }
 </nav>
 
 <header class="hero wrap">
-  <h1 data-en="Select. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It's <span class=&quot;hl&quot;>English</span> now.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">秒变英文</span>。</h1>
-  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. Select Chinese to get English back in place; select English to get Chinese in a popover. Both happen right where you are, without leaving the app.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。选中中文一键变英文，选中英文一键出中文，都在你当前的 app 里就地完成。</p>
+  <h1 data-en="Select text. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It translates <span class=&quot;hl&quot;>in place</span>.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">中英文原地互转</span>。</h1>
+  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. Select Chinese to get English back in place; select English to get Chinese back in place. Use lookup when you want a popover.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。选中中文一键变英文，选中英文一键变中文；想弹窗查词时再用划词翻译。</p>
 
   <div class="cap-tabs" role="tablist" aria-label="演示能力 / demo capability">
-    <button type="button" class="cap active" data-cap="rewrite" data-en="Write ⌘⇧R">写英文 ⌘⇧R</button>
-    <button type="button" class="cap" data-cap="lookup" data-en="Look up ⌘⇧F">划词 ⌘⇧F</button>
+    <button type="button" class="cap active" data-cap="rewrite" data-en="Bidirectional in-place translation ⌘⇧R">中英文原地互转 ⌘⇧R</button>
+    <button type="button" class="cap" data-cap="lookup" data-en="Lookup ⌘⇧F">划词翻译 ⌘⇧F</button>
   </div>
 
-  <div class="stage" role="img" aria-label="演示：选中文字按快捷键，写英文或划词查中文">
+  <div class="stage" role="img" aria-label="演示：选中文字按快捷键，中英文原地互转或划词翻译">
     <div class="stage-bar">
       <span class="dot"></span><span class="dot"></span><span class="dot"></span>
       <span class="label" data-en="Anywhere on your Mac: Finder, Figma, your IDE, a search box">Mac 上任何地方：访达、Figma、IDE、搜索框</span>
     </div>
     <div class="stage-body">
-      <span id="demo-text">好好学习天天向上</span>
+      <span id="demo-text">你是什么模型？</span>
       <span id="demo-key">⌘⇧R</span>
     </div>
     <div class="demo-pop" aria-hidden="true">
@@ -333,12 +333,13 @@ footer a:hover { color: var(--ink); }
 </header>
 
 <section id="how" class="wrap">
-  <h2 data-en="Write English by typing Chinese">用中文写英文</h2>
+  <h2 data-en="Bidirectional in-place translation">中英文原地互转</h2>
+  <p class="example-line" data-en="Examples: 你是什么模型 → What model are you? · What model are you? → 你是什么模型？">示例：你是什么模型 → What model are you? · What model are you? → 你是什么模型？</p>
   <div class="steps">
     <div class="step">
       <span class="n">1</span>
-      <h3 data-en="Select text">选中文字</h3>
-      <p data-en="Chinese you just typed: a filename, a variable name, a search keyword on Dribbble, a sentence in a chat box.">你刚打的中文：一个文件名、一个变量名、Dribbble 上的搜索词、聊天框里的一句话。</p>
+      <h3 data-en="Select Chinese or English">选中文或英文</h3>
+      <p data-en="Anything you're rewriting: a filename, a variable name, a search keyword on Dribbble, a sentence in a chat box, or a question you want to turn into the other language.">你正在改写的任何内容：文件名、变量名、Dribbble 上的搜索词、聊天框里的一句话，或者想切到另一种语言的问题。</p>
     </div>
     <div class="step">
       <span class="n">2</span>
@@ -347,8 +348,8 @@ footer a:hover { color: var(--ink); }
     </div>
     <div class="step">
       <span class="n">3</span>
-      <h3 data-en="It's replaced">原地替换</h3>
-      <p data-en="Short phrases come back as <span class=&quot;kbd&quot;>kebab-case</span> ready for filenames and code. Sentences come back as natural English.">短词组返回 <span class="kbd">kebab-case</span>，直接拿去当文件名和代码；句子返回自然英文。</p>
+      <h3 data-en="It's replaced in place">原地替换</h3>
+      <p data-en="Chinese comes back as natural English. English comes back as natural Chinese. Short phrases still turn into <span class=&quot;kbd&quot;>kebab-case</span> when that's what fits the job.">中文会变成自然英文；英文会变成自然中文。短词组还是会按需要整理成 <span class="kbd">kebab-case</span>。</p>
     </div>
   </div>
 </section>
@@ -452,7 +453,7 @@ footer a:hover { color: var(--ink); }
       <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Buy Pro">购买 Pro</a>
     </div>
   </div>
-  <p class="honesty" data-en="Honest note: the app's interface is currently in Simplified Chinese (the translations themselves go both ways). An English interface is on the roadmap. If that's a dealbreaker, the free version is a fine way to wait.">实话：离线翻译需要 macOS 15 或更新系统；macOS 13 / 14 请自带 AI key。仅支持 Apple 芯片（M 系列）Mac。</p>
+  <p class="honesty" data-en="Honest note: offline translation requires macOS 15 or later; macOS 13 / 14 needs your own AI key. Apple Silicon only.">实话：离线翻译需要 macOS 15 或更新系统；macOS 13 / 14 请自带 AI key。仅支持 Apple 芯片（M 系列）Mac。</p>
 </section>
 
 <section class="wrap faq">
@@ -499,8 +500,17 @@ footer a:hover { color: var(--ink); }
   var DEMOS = {
     rewrite: {
       key: "⌘⇧R",
-      source: "好好学习天天向上",
-      out: { proper: "study-hard-improve-daily", chinglish: "good-good-study-day-day-up", pretentious: "per-studium-ad-astra" }
+      examples: [
+        {
+          source: "你是什么模型？",
+          out: { proper: "What model are you?", chinglish: "what-model-are-you", pretentious: "quis-model-eris-tu" }
+        },
+        {
+          source: "What model are you?",
+          out: { proper: "你是什么模型？", chinglish: "你是啥模型？", pretentious: "君为何种模型？" }
+        }
+      ],
+      index: 0
     },
     lookup: {
       key: "⌘⇧F",
@@ -519,15 +529,16 @@ footer a:hover { color: var(--ink); }
   function run() {
     clearTimeout(timer);
     var d = DEMOS[cap];
+    var example = (cap === "rewrite") ? d.examples[d.index] : d;
     text.className = ""; key.className = ""; pop.classList.remove("show");
     key.textContent = d.key;
-    popOut.textContent = d.out[style];
+    popOut.textContent = example.out[style];
     if (reduced) {
-      if (cap === "rewrite") { text.textContent = d.source + "  →  " + d.out[style]; }
+      if (cap === "rewrite") { text.textContent = example.source + "  →  " + example.out[style]; }
       else { text.textContent = d.source; pop.classList.add("show"); }
       return;
     }
-    text.textContent = d.source;
+    text.textContent = example.source;
     timer = setTimeout(function () {
       text.classList.add("selected");
       timer = setTimeout(function () {
@@ -535,7 +546,11 @@ footer a:hover { color: var(--ink); }
         timer = setTimeout(function () {
           key.classList.remove("pressed");
           text.classList.remove("selected");
-          if (cap === "rewrite") { text.classList.add("output"); text.textContent = d.out[style]; }
+          if (cap === "rewrite") {
+            text.classList.add("output");
+            text.textContent = example.out[style];
+            d.index = (d.index + 1) % d.examples.length;
+          }
           else { pop.classList.add("show"); }
           timer = setTimeout(run, 3400);
         }, 700);
