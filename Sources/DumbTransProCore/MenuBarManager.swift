@@ -478,7 +478,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         settingsWindow = nil
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 720),
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 560),
             styleMask: [.titled, .closable],
             backing: .buffered,
             defer: false
@@ -489,11 +489,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         window.title = "瞎翻 Pro 设置"
         let hostingView = NSHostingView(rootView: view)
         window.contentView = hostingView
-        // Fit the window to the SwiftUI content so new sections never get clipped
-        let fitting = hostingView.fittingSize
-        if fitting.height > 0 {
-            window.setContentSize(fitting)
-        }
+        window.minSize = NSSize(width: 720, height: 500)
         window.center()
         window.makeKeyAndOrderFront(nil)
         window.isReleasedWhenClosed = false

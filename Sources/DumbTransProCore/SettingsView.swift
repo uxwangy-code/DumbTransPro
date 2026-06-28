@@ -11,6 +11,7 @@ public struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     private let onClose: (() -> Void)?
 
+    @State private var selectedSection: SettingsPanelSection? = .aiService
     @State private var offlineAvailability: OfflineAvailability?
     @State private var selectedProvider: AIProvider?
     @State private var apiKey: String = ""
@@ -39,50 +40,26 @@ public struct SettingsView: View {
     }
 
     public var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("瞎翻 Pro 设置")
-                .font(.headline)
-
-            providerSection
-
-            if let provider = selectedProvider {
-                endpointSection(provider: provider)
-                apiKeySection(provider: provider)
-                modelSection(provider: provider)
-            }
+        HStack(spacing: 0) {
+            sidebar
 
             Divider()
 
-            HotkeySection(store: store, hotkeyManager: hotkeyManager)
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 18) {
+                        sectionHeader(for: currentSection)
+                        selectedSectionContent
+                    }
+                    .padding(24)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
 
-            Divider()
-
-            translationStyleSection
-
-            if offlineAvailability != nil {
                 Divider()
-                offlineSection
-            }
-
-            Divider()
-
-            licenseSection
-
-            HStack {
-                Spacer()
-                Button("取消") {
-                    onClose?()
-                    dismiss()
-                }
-                Button("保存") {
-                    saveAndClose()
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(selectedProvider == nil)
+                footerActions
             }
         }
-        .padding(20)
-        .frame(width: 520)
+        .frame(minWidth: 720, idealWidth: 760, minHeight: 500, idealHeight: 560)
         .task {
             offlineAvailability = await offlineTranslator?.availability()
         }
@@ -94,6 +71,109 @@ public struct SettingsView: View {
     }
 
     // MARK: - Sections
+
+    private var currentSection: SettingsPanelSection {
+        selectedSection ?? .aiService
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            ForEach(SettingsPanelSection.allCases) { section in
+                sidebarButton(for: section)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.top, 28)
+        .padding(.horizontal, 12)
+        .frame(width: 176)
+        .frame(maxHeight: .infinity, alignment: .top)
+        .background(Color(nsColor: .controlBackgroundColor))
+    }
+
+    private func sidebarButton(for section: SettingsPanelSection) -> some View {
+        let state = SettingsPanelSidebarItemState(section: section, selectedSection: currentSection)
+        return Button {
+            selectedSection = section
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: section.systemImage)
+                    .font(.system(size: 15, weight: .medium))
+                    .frame(width: 20)
+                Text(section.title)
+                    .font(.body.weight(.medium))
+                    .lineLimit(1)
+                Spacer(minLength: 0)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 42)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .foregroundStyle(state.isSelected ? Color.white : Color.primary)
+            .background {
+                if state.isSelected {
+                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                        .fill(Color.accentColor)
+                }
+            }
+            .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(state.accessibilityLabel))
+        .accessibilityAddTraits(state.isSelected ? .isSelected : [])
+        .accessibilityValue(Text(state.accessibilityValue ?? ""))
+    }
+
+    private func sectionHeader(for section: SettingsPanelSection) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(section.title)
+                .font(.title3)
+                .fontWeight(.semibold)
+            Text(section.summary)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    @ViewBuilder
+    private var selectedSectionContent: some View {
+        switch currentSection {
+        case .aiService:
+            aiServiceSection
+        case .translation:
+            translationSection
+        case .pro:
+            licenseSection
+        case .feedbackAbout:
+            feedbackAboutSection
+        }
+    }
+
+    private var aiServiceSection: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            providerSection
+
+            if let provider = selectedProvider {
+                endpointSection(provider: provider)
+                apiKeySection(provider: provider)
+                modelSection(provider: provider)
+            }
+        }
+    }
+
+    private var translationSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            HotkeySection(store: store, hotkeyManager: hotkeyManager)
+
+            Divider()
+
+            translationStyleSection
+
+            if offlineAvailability != nil {
+                Divider()
+                offlineSection
+            }
+        }
+    }
 
     private var providerSection: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -382,6 +462,75 @@ public struct SettingsView: View {
                 }
             }
         }
+    }
+
+    private var feedbackAboutSection: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text("反馈")
+                    .font(.subheadline)
+                Button {
+                    openFeedbackMail()
+                } label: {
+                    Label("邮件反馈", systemImage: "envelope")
+                }
+                Text("会打开你的默认邮件客户端，并预填版本、系统、服务商和授权状态。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Divider()
+
+            VStack(alignment: .leading, spacing: 10) {
+                Text("关于")
+                    .font(.subheadline)
+                Label("版本 \(currentFeedbackContext.appVersion)", systemImage: "info.circle")
+                    .foregroundStyle(.secondary)
+                aboutLinks
+            }
+        }
+    }
+
+    private var aboutLinks: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Link(destination: URL(string: "https://uxwangy-code.github.io/DumbTransPro/")!) {
+                Label("官网", systemImage: "safari")
+            }
+            Link(destination: URL(string: "https://github.com/uxwangy-code/DumbTransPro")!) {
+                Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
+            }
+            Link(destination: URL(string: "https://uxwangy-code.github.io/DumbTransPro/privacy.html")!) {
+                Label("隐私政策", systemImage: "hand.raised")
+            }
+        }
+    }
+
+    private var footerActions: some View {
+        HStack {
+            Spacer()
+            Button("取消") {
+                onClose?()
+                dismiss()
+            }
+            Button("保存") {
+                saveAndClose()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(selectedProvider == nil)
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 14)
+    }
+
+    private var currentFeedbackContext: SettingsFeedbackContext {
+        SettingsFeedbackMail.context(
+            activeProviderName: selectedProvider?.displayName ?? store.activeProvider?.displayName,
+            licenseTier: license.tier
+        )
+    }
+
+    private func openFeedbackMail() {
+        NSWorkspace.shared.open(SettingsFeedbackMail.url(context: currentFeedbackContext))
     }
 
     private func activateLicense() {
