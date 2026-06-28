@@ -101,6 +101,21 @@ bash scripts/bundle.sh
 bash scripts/bundle.sh --install --launch
 ```
 
+匿名使用数据本地验证：
+
+```bash
+bash scripts/verify-telemetry-local.sh
+cat build/telemetry/events.jsonl
+```
+
+正式查看用户更新后的匿名使用数据，需要先部署 HTTPS 收集端，再在打包/发版时设置：
+
+```bash
+DUMBTRANS_USAGE_TELEMETRY_URL="https://your-domain.example/events" bash scripts/bundle.sh
+```
+
+GitHub Pages 只能托管静态文件，不能接收 App 发来的 `POST /events`。
+
 ## 项目结构
 
 ```text

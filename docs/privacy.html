@@ -22,15 +22,15 @@ a:hover { text-decoration: underline; }
 <div class="wrap">
 <a class="back" href="index.html" data-en="← DumbTrans Pro">← 瞎翻 Pro</a>
 <h1 data-en="Privacy Policy">隐私政策</h1>
-<p class="updated" data-en="Last updated: June 11, 2026">最后更新：2026 年 6 月 11 日</p>
+<p class="updated" data-en="Last updated: June 28, 2026">最后更新：2026 年 6 月 28 日</p>
 
-<div class="tldr" data-en="<strong>Short version:</strong> DumbTrans Pro has no servers, no accounts, no analytics, and no telemetry. Your text goes directly from your Mac to the AI provider you configured. We never see it."><strong>简版：</strong>瞎翻 Pro 没有服务器、没有账号、没有统计、没有埋点。你的文字直接从你的 Mac 发给你配置的 AI 服务商，我们永远看不到。离线模式下，文字根本不出你的设备。</div>
+<div class="tldr" data-en="<strong>Short version:</strong> DumbTrans Pro has no accounts and does not collect your translation text, API keys, license keys, clipboard contents, typed input, or personal identity. Anonymous usage data is on by default to help us improve the service, and you can turn it off in Settings at any time."><strong>简版：</strong>瞎翻 Pro 没有账号，也不收集你的翻译原文、译文、API Key、License Key、剪贴板内容、输入内容或个人身份信息。匿名使用数据默认开启，用于帮助我们改进服务；你可以随时在设置里关闭。</div>
 
 <h2 data-en="What the App stores, and where">App 存什么、存在哪</h2>
 <ul>
 <li data-en="<strong>API keys</strong> you enter are stored in the macOS Keychain on your device. They are sent only to the corresponding AI provider's endpoint, never to us."><strong>你输入的 API key</strong> 存在你设备的 macOS 钥匙串里，只发给对应的 AI 服务商端点，绝不发给我们。</li>
 <li data-en="<strong>License keys</strong> are stored in the macOS Keychain on your device."><strong>License key</strong> 存在你设备的 macOS 钥匙串里。</li>
-<li data-en="<strong>Settings</strong> (chosen provider, hotkeys, translation style, daily usage count for the free tier) are stored locally in macOS user defaults."><strong>设置项</strong>（所选服务商、快捷键、翻译风格、免费版每日用量计数）存在本地 macOS user defaults 里。</li>
+<li data-en="<strong>Settings</strong> (chosen provider, hotkeys, translation style, anonymous usage data preference, daily usage count for the free tier) are stored locally in macOS user defaults."><strong>设置项</strong>（所选服务商、快捷键、翻译风格、匿名使用数据偏好、免费版每日用量计数）存在本地 macOS user defaults 里。</li>
 <li data-en="<strong>Your translated text</strong> is not stored by the App at all."><strong>你的译文</strong>，App 根本不存储。</li>
 </ul>
 
@@ -40,16 +40,19 @@ a:hover { text-decoration: underline; }
 <li data-en="<strong>Translation requests</strong> (when you use an AI key) go directly from your Mac to the AI provider you selected (e.g. api.openai.com), authenticated with your own key, under that provider's privacy policy."><strong>翻译请求</strong>（使用 AI key 时）直接从你的 Mac 发给你选的 AI 服务商（如 api.openai.com），用你自己的 key 鉴权，遵循该服务商的隐私政策。</li>
 <li data-en="<strong>License verification</strong> sends your license key (and nothing else) to Gumroad's license API when you activate, and periodically thereafter."><strong>授权校验</strong>在你激活时（及之后定期）把你的 license key（仅此而已）发给 Gumroad 的授权 API。</li>
 <li data-en="<strong>Update checks</strong> fetch a standard appcast file from GitHub Pages via the Sparkle framework. This involves ordinary HTTP request metadata (such as your IP address, visible to GitHub) and no personal data from the App."><strong>检查更新</strong>通过 Sparkle 框架从 GitHub Pages 拉取标准 appcast 文件，只涉及普通 HTTP 请求元数据（如你的 IP，GitHub 可见），不含 App 的任何个人数据。</li>
+<li data-en="<strong>Anonymous usage data</strong> is on by default and can be turned off in Settings → Feedback &amp; About. It uses ordinary HTTPS requests, so the receiving endpoint may see standard request metadata such as your IP address."><strong>匿名使用数据</strong>默认开启，可在「设置 → 反馈与关于」关闭。它使用普通 HTTPS 请求，因此接收端可能看到标准请求元数据，例如你的 IP 地址。</li>
 </ul>
 
 <h2 data-en="What we collect">我们收集什么</h2>
-<p data-en="Nothing. The App contains no analytics SDK, no crash reporter, and no tracking. If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.">什么都不收。App 没有统计 SDK、没有崩溃上报、没有追踪。如果你发邮件找我们支持，我们会看到你的邮箱和你愿意告诉我们的内容，仅用于帮你解决问题。</p>
+<p data-en="Anonymous usage data helps us improve the service. The App may send product-level events: app launch, translation success or failure, usage path (in-place translation or lookup), provider type, AI/offline route, coarse error type, App version, macOS version, and Free/Pro tier.">匿名使用数据用于帮助我们改进服务。App 可能发送这些产品层面的事件：启动、翻译成功或失败、使用路径（原地互转或划词翻译）、provider 类型、AI/离线路由、粗粒度错误类型、App 版本、macOS 版本、Free/Pro 状态。</p>
+<p data-en="We never send translation source text, translated text, API keys, license keys, clipboard contents, typed input, custom endpoint URLs, model names, persistent device IDs, names, emails, or other direct personal identifiers as part of anonymous usage data. Failed telemetry requests are silently dropped and not stored in a local retry queue.">匿名使用数据绝不会发送翻译原文、译文、API Key、License Key、剪贴板内容、输入内容、自定义 endpoint URL、模型名称、持久设备 ID、姓名、邮箱或其他直接个人身份标识。发送失败会静默丢弃，不写入本地重试队列。</p>
+<p data-en="If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.">如果你发邮件找我们支持，我们会看到你的邮箱和你愿意告诉我们的内容，仅用于帮你解决问题。</p>
 
 <h2 data-en="Purchases">购买</h2>
 <p data-en="When you buy a license, the checkout is operated by Gumroad and/or Paddle. They process your payment details and email address under their own privacy policies; we receive your email address and license status so we can provide support.">购买 license 时，结账由 Gumroad 和/或 Paddle 运营，他们按各自的隐私政策处理你的支付信息和邮箱；我们会收到你的邮箱和授权状态，以便提供支持。</p>
 
 <h2 data-en="Children">未成年人</h2>
-<p data-en="The App is not directed at children under 13 and we do not knowingly collect data from them (we do not collect data from anyone).">本 App 不面向 13 岁以下儿童，我们也不会有意收集他们的数据（我们不收集任何人的数据）。</p>
+<p data-en="The App is not directed at children under 13, and we do not knowingly collect personal data from them.">本 App 不面向 13 岁以下儿童，我们也不会有意收集他们的个人数据。</p>
 
 <h2 data-en="Changes">变更</h2>
 <p data-en="If this policy changes materially, the new version will be posted here with an updated date.">若本政策有实质性变更，新版本会连同更新日期发布于此。</p>

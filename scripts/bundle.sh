@@ -30,6 +30,7 @@ Environment:
   DUMBTRANS_VERSION           CFBundleShortVersionString override.
   DUMBTRANS_BUILD             CFBundleVersion override.
   DUMBTRANS_SPARKLE_FEED_URL  Sparkle appcast URL override.
+  DUMBTRANS_USAGE_TELEMETRY_URL  Optional anonymous usage event endpoint.
   DUMBTRANS_SPARKLE_KEY_ACCOUNT  Keychain account for Sparkle EdDSA key.
   DUMBTRANS_SPARKLE_PUBLIC_ED_KEY  Sparkle EdDSA public key for update verification.
 EOF
@@ -82,7 +83,20 @@ quit_running_app() {
     fi
 
     echo "Stopping running ${executable_name} before relaunch..."
-    osascript -e "tell application id \"${bundle_id}\" to quit" >/dev/null 2>&1 || true
+    osascript -e "tell application id \"${bundle_id}\" to quit" >/dev/null 2>&1 &
+    local quit_pid="$!"
+    for _ in {1..15}; do
+        if ! kill -0 "$quit_pid" >/dev/null 2>&1; then
+            wait "$quit_pid" >/dev/null 2>&1 || true
+            break
+        fi
+        sleep 0.2
+    done
+    if kill -0 "$quit_pid" >/dev/null 2>&1; then
+        echo "  → AppleScript quit timed out; continuing with terminate fallback."
+        kill "$quit_pid" >/dev/null 2>&1 || true
+        wait "$quit_pid" >/dev/null 2>&1 || true
+    fi
 
     for _ in {1..15}; do
         if ! pgrep -x "$executable_name" >/dev/null 2>&1; then
@@ -112,10 +126,35 @@ set_plist_string() {
     fi
 }
 
+allow_local_telemetry_networking_if_needed() {
+    local value="$1"
+    local plist="$CONTENTS_DIR/Info.plist"
+    local plistbuddy="/usr/libexec/PlistBuddy"
+
+    case "$value" in
+        http://127.0.0.1:*|http://localhost:*)
+            ;;
+        *)
+            return 0
+            ;;
+    esac
+
+    if ! "$plistbuddy" -c "Print :NSAppTransportSecurity" "$plist" >/dev/null 2>&1; then
+        "$plistbuddy" -c "Add :NSAppTransportSecurity dict" "$plist"
+    fi
+    if "$plistbuddy" -c "Print :NSAppTransportSecurity:NSAllowsLocalNetworking" "$plist" >/dev/null 2>&1; then
+        "$plistbuddy" -c "Set :NSAppTransportSecurity:NSAllowsLocalNetworking true" "$plist"
+    else
+        "$plistbuddy" -c "Add :NSAppTransportSecurity:NSAllowsLocalNetworking bool true" "$plist"
+    fi
+}
+
 configure_info_plist() {
     set_plist_string "CFBundleShortVersionString" "${DUMBTRANS_VERSION:-}"
     set_plist_string "CFBundleVersion" "${DUMBTRANS_BUILD:-}"
     set_plist_string "SUFeedURL" "${DUMBTRANS_SPARKLE_FEED_URL:-}"
+    set_plist_string "DTPUsageTelemetryURL" "${DUMBTRANS_USAGE_TELEMETRY_URL:-}"
+    allow_local_telemetry_networking_if_needed "${DUMBTRANS_USAGE_TELEMETRY_URL:-}"
 
     local public_key="${DUMBTRANS_SPARKLE_PUBLIC_ED_KEY:-}"
     local sparkle_account="${DUMBTRANS_SPARKLE_KEY_ACCOUNT:-com.whimsycode.dumbtrans-pro}"

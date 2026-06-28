@@ -20,6 +20,7 @@ final class LookupPanelManager {
         originalText: String,
         modelLabel: String,
         onSuccess: (() -> Void)? = nil,
+        onFailure: ((Error) -> Void)? = nil,
         fetch: @escaping @MainActor (String) async throws -> LookupResult
     ) {
         close()
@@ -90,6 +91,7 @@ final class LookupPanelManager {
                 state.error = error.localizedDescription
                 state.isLoading = false
                 state.isSlowLoading = false
+                onFailure?(error)
             }
             self?.slowHintTask?.cancel()
             self?.slowHintTask = nil
