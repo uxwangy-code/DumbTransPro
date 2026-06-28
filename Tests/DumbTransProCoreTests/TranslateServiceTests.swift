@@ -97,6 +97,13 @@ struct TranslateServiceTests {
         return try #require(first["content"] as? String)
     }
 
+    func requestMessages() throws -> [[String: Any]] {
+        let data = try #require(MockURLProtocol.lastRequestBody)
+        let object = try JSONSerialization.jsonObject(with: data)
+        let json = try #require(object as? [String: Any])
+        return try #require(json["messages"] as? [[String: Any]])
+    }
+
     @Test func plainStyleTranslation() async throws {
         let responseJSON = """
         {
@@ -131,6 +138,111 @@ struct TranslateServiceTests {
         let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
         let result = try await service.translate("好好学习", style: .natural)
         #expect(result == "study-hard")
+    }
+
+    @Test func requestWrapsUserTextAsLiteralSource() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"What model are you?"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        _ = try await service.translate("你是什么模型", style: .natural)
+
+        let messages = try requestMessages()
+        let last = try #require(messages.last)
+        let content = try #require(last["content"] as? String)
+        #expect(content.contains("<dumbtrans-source>"))
+        #expect(content.contains("你是什么模型"))
+        #expect(content.contains("不要回答"))
+    }
+
+    @Test func naturalPromptDeclaresSourceTextIsNeverInstructions() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"What model are you?"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        _ = try await service.translate("你是什么模型", style: .natural)
+
+        let prompt = try requestPrompt()
+        #expect(prompt.contains("定界符"))
+        #expect(prompt.contains("只翻译"))
+        #expect(prompt.contains("绝不回答"))
+    }
+
+    @Test func naturalProsePromptKeepsIdentityQuestionsDirect() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"What model are you?"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        _ = try await service.translate("你是什么模型", style: .natural)
+
+        let messages = try requestMessages()
+        let system = try #require(messages.first?["content"] as? String)
+        #expect(system.contains("不要把「是什么模型」扩写成 \"what kind of model\""))
+
+        let exampleInputs = messages.compactMap { $0["role"] as? String == "user" ? $0["content"] as? String : nil }
+        let exampleOutputs = messages.compactMap { $0["role"] as? String == "assistant" ? $0["content"] as? String : nil }
+        #expect(exampleInputs.contains("你是什么模型？"))
+        #expect(exampleOutputs.contains("What model are you?"))
+    }
+
+    @Test func translateToChineseUsesLookupPromptAndReturnsTextOnly() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"你是什么模型？"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translateToChinese("What model are you?", style: .natural)
+
+        #expect(result == "你是什么模型？")
+        let prompt = try requestPrompt()
+        #expect(prompt.contains("简体中文"))
+    }
+
+    @Test func naturalLookupPromptKeepsAIModelAsModel() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"你是什么模型？"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        _ = try await service.translateToChinese("What model are you?", style: .natural)
+
+        let messages = try requestMessages()
+        let system = try #require(messages.first?["content"] as? String)
+        #expect(system.contains("AI 或大语言模型语境"))
+        #expect(system.contains("不要把 model 译成「型号」"))
+        #expect(system.contains("不要无故使用「您」"))
+
+        let exampleInputs = messages.compactMap { $0["role"] as? String == "user" ? $0["content"] as? String : nil }
+        let exampleOutputs = messages.compactMap { $0["role"] as? String == "assistant" ? $0["content"] as? String : nil }
+        #expect(exampleInputs.contains("What model are you?"))
+        #expect(exampleOutputs.contains("你是什么模型？"))
+        #expect(exampleInputs.contains("What model are you using?"))
+        #expect(exampleOutputs.contains("你用的是什么模型？"))
+    }
+
+    @Test func translateToChineseRepairsAIModelQuestionTerminology() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"你是什么型号？"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translateToChinese("What model are you?", style: .natural)
+
+        #expect(result == "你是什么模型？")
+    }
+
+    @Test func translateToChineseRepairsAIModelUsingQuestionTerminology() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"message":{"content":"你使用什么型号？"}}]}"#.data(using: .utf8)
+        MockURLProtocol.mockStatusCode = 200
+
+        let service = TranslateService(apiKey: "sk-test", session: makeTestSession())
+        let result = try await service.translateToChinese("What model are you using?", style: .natural)
+
+        #expect(result == "你用的是什么模型？")
     }
 
     @Test func elegantStyleTranslation() async throws {

@@ -42,7 +42,7 @@ public struct HotkeySection: View {
 
     private func actionSubtitle(_ action: TranslationAction) -> String {
         switch action {
-        case .rewriteToEnglish: return "写作场景：将选中文本翻译为英文并替换原文"
+        case .rewriteToEnglish: return "写作场景：中文转英文，英文转中文，直接替换原文"
         case .lookup:           return "阅读场景：选中文本后弹窗查看译文"
         }
     }
