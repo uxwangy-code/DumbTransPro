@@ -3,6 +3,25 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.5.1</title>
+            <pubDate>Mon, 29 Jun 2026 22:19:01 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>151</sparkle:version>
+            <sparkle:shortVersionString>1.5.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.5.1
+
+**本版切换到正式 License 服务，并开放国内/海外购买入口。**
+
+- Pro 激活改为使用 `license.whimsycode.com` 自建校验服务，支持千寻卡密和 Gumroad 旧 key。
+- 官网购买入口开放为国内千寻、海外 Gumroad、免费下载三种选择。
+- 修复 License 服务短暂异常时可能把已激活用户误判为失效的问题，网络或服务端错误会保留当前 Pro 状态并提示稍后重试。
+- 更新官网核心演示和定价区，让设计师场景、划词翻译和购买路径更清楚。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.5.1/DumbTransPro-1.5.1.zip" length="3817492" type="application/octet-stream" sparkle:edSignature="zMU3xU0ZRbdcIwfTuLnkiu1amd222qrywFiSGazYE3XXjuPHIygk1w2U0farw0Y88SvS7N0Nb4BmBtk0ldtnAQ=="/>
+        </item>
+        <item>
             <title>1.5.0</title>
             <pubDate>Sun, 28 Jun 2026 22:28:03 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
