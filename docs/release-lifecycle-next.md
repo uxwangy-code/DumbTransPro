@@ -36,7 +36,7 @@ Possible future paid layer:
 
 Short term:
 
-- China: Mianbaoduo Pay.
+- China: Qianxun virtual-card resale. Create a product page manually, upload generated license TXT inventory, and let buyers receive a card key.
 - Overseas: keep Gumroad.
 - Do not add Dodo Payments or Paddle yet.
 - Do not do automatic region detection in the app or website. Show two purchase entrances and let users choose.
@@ -54,7 +54,7 @@ Client build-time configuration:
 
 ```bash
 DUMBTRANS_LICENSE_PURCHASE_URL="https://your-domain.example/buy"
-DUMBTRANS_LICENSE_VERIFY_URL="https://your-domain.example/api/licenses/verify"
+DUMBTRANS_LICENSE_VERIFY_URL="https://dumbtrans-license-gateway.whimsycode.workers.dev/api/licenses/verify"
 ```
 
 Client verification request contract:
@@ -86,19 +86,21 @@ Invalid/refunded/disabled responses should return:
 }
 ```
 
-The future backend should:
+The deployed backend now:
 
-- create Mianbaoduo orders;
-- verify Mianbaoduo webhook signatures;
-- generate license keys after paid orders;
-- store order email, provider, license key, status, created time, and refund/disable state;
-- expose `/api/licenses/verify` for the app;
-- keep Gumroad compatibility for existing keys either through app fallback or backend migration.
+- runs on Cloudflare Workers + D1 at `https://dumbtrans-license-gateway.whimsycode.workers.dev`;
+- exposes `/api/licenses/verify` for the app;
+- stores only license HMAC hash and visible suffix, not plaintext keys;
+- supports manual smoke/test license issuing;
+- supports by-key refund/disable for support;
+- supports two-step Qianxun card-stock flow: local TXT generation first, then hash-only import/activation.
+
+The app still keeps Gumroad verifier fallback for existing or overseas keys.
 
 ## Open Follow-Ups
 
-- Build the domestic purchase page with two visible entrances: China and overseas.
-- Build the self-hosted license gateway and Mianbaoduo webhook handler.
+- Create the Qianxun product page and connect the domestic website button.
+- Generate and import the first small Qianxun TXT inventory only after the product page is ready.
 - Decide whether to migrate old Gumroad keys into the new backend or keep app-side Gumroad fallback for the first release.
-- Update `docs/index.html` with real purchase URLs after the Mianbaoduo product and Gumroad page are ready.
+- Update `docs/index.html` with the real Qianxun purchase URL after the product page is ready.
 - Review public legal copy again before launch, especially if the domestic payment provider becomes final.

@@ -113,7 +113,7 @@ cat build/telemetry/events.jsonl
 ```bash
 DUMBTRANS_USAGE_TELEMETRY_URL="https://your-domain.example/events" \
 DUMBTRANS_LICENSE_PURCHASE_URL="https://your-domain.example/buy" \
-DUMBTRANS_LICENSE_VERIFY_URL="https://your-domain.example/api/licenses/verify" \
+DUMBTRANS_LICENSE_VERIFY_URL="https://dumbtrans-license-gateway.whimsycode.workers.dev/api/licenses/verify" \
   bash scripts/bundle.sh
 ```
 

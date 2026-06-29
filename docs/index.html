@@ -237,6 +237,21 @@ h2 {
 .plan li { font-size: 15px; padding: 5px 0 5px 26px; position: relative; }
 .plan li::before { content: "✓"; position: absolute; left: 2px; color: var(--select-blue); font-weight: 700; }
 .plan.free li::before { color: var(--ink-soft); }
+.purchase-options {
+  display: grid;
+  gap: 0;
+  margin-top: 18px;
+  border-top: 1px solid var(--hairline);
+}
+.purchase-option {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--hairline);
+}
+.channel-label { display: block; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+.channel-price { font-family: var(--display); font-size: 28px; font-weight: 700; line-height: 1.2; }
+.channel-price .standard { display: block; margin-top: 3px; font-family: var(--body); font-size: 13px; font-weight: 400; color: var(--ink-soft); }
+.channel-note { margin: 8px 0 14px; font-size: 13px; color: var(--ink-soft); }
+.purchase-option .btn { width: 100%; text-align: center; padding: 10px 16px; font-size: 14px; }
 .honesty {
   margin-top: 28px; max-width: 720px; font-size: 14px; color: var(--ink-soft);
   background: var(--card); border: 1px solid var(--hairline);
@@ -326,7 +341,7 @@ footer a:hover { color: var(--ink); }
   </div>
 
   <div class="cta-row">
-    <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Get Pro · $6.99 launch price">入手 Pro · 首发 $6.99</a>
+    <a class="btn btn-primary" href="#pricing" data-en="Choose Pro checkout">选择 Pro 购买渠道</a>
     <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest" data-en="Download free version">下载免费版</a>
   </div>
   <p class="cta-note" data-en="Works offline, no key needed (macOS 15+) · Apple Silicon · one-time purchase, no subscription">离线即用、无需 key（macOS 15+）· 仅 Apple 芯片 · 一次买断、不订阅</p>
@@ -427,7 +442,7 @@ footer a:hover { color: var(--ink); }
 </section>
 
 <section id="pricing" class="wrap">
-  <h2 data-en="Pay once. That's the whole pricing page.">一次买断。整个定价页就这么简单。</h2>
+  <h2 data-en="Pay once. Choose the checkout that fits you.">一次买断。自己选择购买渠道。</h2>
   <div class="plans">
     <div class="plan free">
       <h3 data-en="Free">免费版</h3>
@@ -442,18 +457,32 @@ footer a:hover { color: var(--ink); }
     </div>
     <div class="plan pro">
       <h3>Pro</h3>
-      <div class="price">$6.99<span class="was">$14.99</span></div>
-      <div class="billing" data-en="one-time · launch price">一次买断 · 首发价</div>
+      <div class="billing" data-en="one-time purchase · no subscription">一次买断 · 不订阅</div>
       <ul>
         <li data-en="Everything in Free">免费版的全部</li>
         <li data-en="All 8 AI providers + custom endpoints">全部 8 家 AI 服务商 + 自定义端点</li>
         <li data-en="Unlimited AI translations, every style">AI 翻译不限次，全部风格</li>
         <li data-en="One license for all your personal Macs">一份授权，你所有的 Mac</li>
       </ul>
-      <a class="btn btn-primary" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Buy Pro">购买 Pro</a>
+      <div class="purchase-options" aria-label="Pro 购买渠道 / Pro checkout options">
+        <div class="purchase-option primary">
+          <span class="channel-label" data-en="China: WeChat / Alipay">国内用户：微信/支付宝购买</span>
+          <div class="channel-price" data-en="Early bird ¥9.9">早鸟 ¥9.9</div>
+          <div class="channel-price"><span class="standard" data-en="Standard ¥39">正式 ¥39</span></div>
+          <p class="channel-note" data-en="Qianxun virtual-card checkout is coming. Leave an email first if you want the early-bird price.">千寻虚拟卡购买页准备中；想锁定早鸟价可以先邮件联系。</p>
+          <a class="btn btn-primary" href="mailto:hi@whimsycode.com?subject=%E7%9E%8E%E7%BF%BB%20Pro%20%E5%9B%BD%E5%86%85%E8%B4%AD%E4%B9%B0" data-en="Reserve China checkout">预约国内购买</a>
+        </div>
+        <div class="purchase-option">
+          <span class="channel-label" data-en="Overseas: Gumroad checkout">海外用户：Gumroad 购买</span>
+          <div class="channel-price" data-en="Early bird $1.49">早鸟 $1.49</div>
+          <div class="channel-price"><span class="standard" data-en="Standard $5.99">正式 $5.99</span></div>
+          <p class="channel-note" data-en="Use this if you prefer an international card or Gumroad account.">适合使用国际银行卡或 Gumroad 账号的用户。</p>
+          <a class="btn btn-ghost" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Buy on Gumroad">去 Gumroad 购买</a>
+        </div>
+      </div>
     </div>
   </div>
-  <p class="honesty" data-en="Honest note: offline translation requires macOS 15 or later; macOS 13 / 14 needs your own AI key. Apple Silicon only.">实话：离线翻译需要 macOS 15 或更新系统；macOS 13 / 14 请自带 AI key。仅支持 Apple 芯片（M 系列）Mac。</p>
+  <p class="honesty" data-en="Honest note: offline translation requires macOS 15 or later; macOS 13 / 14 needs your own AI key. Apple Silicon only. We do not choose a checkout for you; choose the checkout that fits you.">实话：离线翻译需要 macOS 15 或更新系统；macOS 13 / 14 请自带 AI key。仅支持 Apple 芯片（M 系列）Mac。我们不替你判断地区，请自己选择购买渠道。</p>
 </section>
 
 <section class="wrap faq">
