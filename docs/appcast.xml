@@ -3,6 +3,25 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.5.0</title>
+            <pubDate>Sun, 28 Jun 2026 22:28:03 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>150</sparkle:version>
+            <sparkle:shortVersionString>1.5.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.5.0
+
+**本版让「中英文原地互转」更完整，也补上匿名使用数据反馈。**
+
+- `Cmd+Shift+R` 现在支持中英文双向原地互转：选中中文转英文，选中英文转中文，仍然直接替换原文
+- 优化短词、文件名、搜索词和英文句子的判断，减少把一句话误整理成 kebab-case 的情况
+- 设置面板重新整理为「AI 服务 / 翻译设置 / Pro / 反馈与关于」，反馈入口更容易找到
+- 新增匿名使用数据反馈，帮助我们判断启动、翻译成功/失败、AI/离线路由、服务商类型和粗粒度错误类型；可在设置里关闭
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.5.0/DumbTransPro-1.5.0.zip" length="3797492" type="application/octet-stream" sparkle:edSignature="diDpJm6ApSGFQZh0mj7RWzMixMrmfmt89igxGnhnd5H+1nJKGq+uJBdAobVUxQ2Y1Mjww9E1e9RTqvfhpbkZAg=="/>
+        </item>
+        <item>
             <title>1.4.0</title>
             <pubDate>Tue, 16 Jun 2026 21:06:10 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
