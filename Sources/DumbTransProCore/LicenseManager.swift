@@ -21,9 +21,13 @@ public enum LicenseError: Error, LocalizedError, Equatable {
         switch self {
         case .emptyKey: return "请输入 License Key"
         case .invalidKey(let reason): return "License 无效：\(reason)"
-        case .network(let reason): return "暂时无法验证 License（\(reason)），请检查网络后重试"
+        case .network(let reason): return "暂时无法验证 License（\(reason)），请检查网络后重试；如果当前网络访问海外服务不稳定，可尝试挂🪜后重试"
         }
     }
+}
+
+public enum LicenseVerificationProblem: Equatable, Sendable {
+    case network(String)
 }
 
 public struct LicenseVerification: Sendable, Equatable {
@@ -39,6 +43,147 @@ public struct LicenseVerification: Sendable, Equatable {
 public protocol LicenseVerifying: Sendable {
     /// 返回校验结果；key 无效（不存在/退款/拒付）走返回值，只有网络层失败才抛错。
     func verify(key: String, incrementUses: Bool) async throws -> LicenseVerification
+}
+
+public struct CompositeLicenseVerifier: LicenseVerifying {
+    private let verifiers: [any LicenseVerifying]
+
+    public init(verifiers: [any LicenseVerifying]) {
+        self.verifiers = verifiers
+    }
+
+    public func verify(key: String, incrementUses: Bool) async throws -> LicenseVerification {
+        var invalidReasons: [String] = []
+        var networkError: Error?
+
+        for verifier in verifiers {
+            do {
+                let result = try await verifier.verify(key: key, incrementUses: incrementUses)
+                if result.isValid {
+                    return result
+                }
+                if let reason = result.failureReason, !reason.isEmpty {
+                    invalidReasons.append(reason)
+                }
+            } catch {
+                networkError = error
+            }
+        }
+
+        if let networkError {
+            throw networkError
+        }
+
+        return LicenseVerification(
+            isValid: false,
+            failureReason: invalidReasons.first ?? "key 不存在或已停用"
+        )
+    }
+}
+
+public enum LicenseVerifierFactory {
+    public static func production(bundle: Bundle = .main) -> any LicenseVerifying {
+        var verifiers: [any LicenseVerifying] = []
+        if let verifyURL = LicenseGatewayVerifier.verifyURL(bundle: bundle) {
+            verifiers.append(LicenseGatewayVerifier(verifyURL: verifyURL))
+        }
+        verifiers.append(GumroadLicenseVerifier())
+        return CompositeLicenseVerifier(verifiers: verifiers)
+    }
+}
+
+public enum LicensePurchase {
+    public static let fallbackURL = URL(string: "https://uxwangy-code.github.io/DumbTransPro/")!
+
+    public static func url(bundle: Bundle = .main) -> URL {
+        guard let raw = bundle.object(forInfoDictionaryKey: "DTPLicensePurchaseURL") as? String else {
+            return fallbackURL
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed) else { return fallbackURL }
+        return url
+    }
+}
+
+public struct LicenseGatewayVerifier: LicenseVerifying {
+    private let session: URLSession
+    private let verifyURL: URL
+    private let appName: String
+
+    public init(
+        session: URLSession = .shared,
+        verifyURL: URL,
+        appName: String = "DumbTransPro"
+    ) {
+        self.session = session
+        self.verifyURL = verifyURL
+        self.appName = appName
+    }
+
+    public static func verifyURL(bundle: Bundle = .main) -> URL? {
+        guard let raw = bundle.object(forInfoDictionaryKey: "DTPLicenseVerifyURL") as? String else {
+            return nil
+        }
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
+    }
+
+    public func verify(key: String, incrementUses: Bool) async throws -> LicenseVerification {
+        var request = URLRequest(url: verifyURL, timeoutInterval: 15)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+
+        let payload: [String: Any] = [
+            "license_key": key,
+            "increment_uses": incrementUses,
+            "app": appName,
+        ]
+        request.httpBody = try JSONSerialization.data(withJSONObject: payload)
+
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw LicenseError.network(error.localizedDescription)
+        }
+
+        guard let http = response as? HTTPURLResponse else {
+            throw LicenseError.network("无效响应")
+        }
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw LicenseError.network("HTTP \(http.statusCode)")
+        }
+
+        guard (200..<300).contains(http.statusCode) else {
+            throw LicenseError.network("HTTP \(http.statusCode)")
+        }
+
+        let success = json["valid"] as? Bool ?? json["is_valid"] as? Bool ?? false
+        guard success else {
+            return LicenseVerification(isValid: false, failureReason: failureReason(in: json) ?? "key 不存在或已停用")
+        }
+
+        return LicenseVerification(isValid: true)
+    }
+
+    private func failureReason(in json: [String: Any]) -> String? {
+        if let reason = json["reason"] as? String, !reason.isEmpty {
+            return reason
+        }
+        if let failureReason = json["failure_reason"] as? String, !failureReason.isEmpty {
+            return failureReason
+        }
+        if let error = json["error"] as? String, !error.isEmpty {
+            return error
+        }
+        if let message = json["message"] as? String, !message.isEmpty {
+            return message
+        }
+        return nil
+    }
 }
 
 /// Gumroad License Key 校验。Gumroad 托管签发/停用，app 端只做一次 HTTPS 校验，无自建后端。
@@ -103,18 +248,17 @@ public struct GumroadLicenseVerifier: LicenseVerifying {
 /// Free/Pro 分层与 license 生命周期：
 /// - key 存 Keychain，不落盘明文
 /// - 激活时在线校验一次；之后每隔几天静默复验
-/// - 断网时有宽限期，宽限期内 Pro 不掉级；明确无效（退款/拒付）才摘除 key
+/// - 断网复验失败时保留已验证的 Pro；明确无效（退款/拒付）才摘除 key
 @MainActor
 public final class LicenseManager: ObservableObject {
     public static let freeProviders: Set<AIProvider> = [.openai, .zhipu]
     public static let freeProviderNames = "OpenAI、智谱 GLM"
     public static let freeDailyLimit = 30
-    /// 断网宽限期（天）：超过这个时长没有成功复验，Pro 临时降级；key 保留，联网复验成功即恢复
-    static let offlineGraceDays = 14
     /// 静默复验间隔（天）
     static let revalidationIntervalDays = 3
 
     @Published public private(set) var tier: LicenseTier = .free
+    @Published public private(set) var lastVerificationProblem: LicenseVerificationProblem?
 
     private let defaults: UserDefaults
     private let keychainService: String
@@ -129,7 +273,7 @@ public final class LicenseManager: ObservableObject {
         self.init(
             defaults: .standard,
             keychainService: "com.whimsycode.dumbtrans-pro",
-            verifier: GumroadLicenseVerifier()
+            verifier: LicenseVerifierFactory.production()
         )
     }
 
@@ -144,8 +288,8 @@ public final class LicenseManager: ObservableObject {
         self.verifier = verifier
         self.now = now
         self.meter = DailyUsageMeter(defaults: defaults, now: now)
-        if storedKey() != nil {
-            tier = withinOfflineGrace() ? .pro : .free
+        if storedKey() != nil, lastVerifiedAt() != nil {
+            tier = .pro
         }
     }
 
@@ -184,6 +328,18 @@ public final class LicenseManager: ObservableObject {
         return "····" + key.suffix(8)
     }
 
+    public var proStatusDetail: String? {
+        guard tier == .pro else { return nil }
+        switch lastVerificationProblem {
+        case .network:
+            let lastText = lastVerifiedAt().map { Self.displayDate($0) } ?? "未知"
+            return "最近无法联网复验，上次验证：\(lastText)。License 已保留，可尝试挂🪜后重试。"
+        case nil:
+            guard let last = lastVerifiedAt() else { return nil }
+            return "上次验证：\(Self.displayDate(last))"
+        }
+    }
+
     // MARK: - License lifecycle
 
     public func activate(key rawKey: String) async throws {
@@ -196,12 +352,14 @@ public final class LicenseManager: ObservableObject {
         }
         try? KeychainHelper.save(service: keychainService, account: licenseAccount, data: key)
         defaults.set(now().timeIntervalSince1970, forKey: lastVerifiedKey)
+        lastVerificationProblem = nil
         tier = .pro
     }
 
     public func deactivate() {
         try? KeychainHelper.delete(service: keychainService, account: licenseAccount)
         defaults.removeObject(forKey: lastVerifiedKey)
+        lastVerificationProblem = nil
         tier = .free
     }
 
@@ -217,14 +375,17 @@ public final class LicenseManager: ObservableObject {
             let result = try await verifier.verify(key: key, incrementUses: false)
             if result.isValid {
                 defaults.set(now().timeIntervalSince1970, forKey: lastVerifiedKey)
+                lastVerificationProblem = nil
                 tier = .pro
             } else {
                 // 明确无效（退款/拒付/key 被停用）才摘除
                 deactivate()
             }
         } catch {
-            // 网络失败：宽限期内维持 Pro，超出则临时降级，key 保留待恢复
-            tier = withinOfflineGrace() ? .pro : .free
+            // 网络失败：只要本机曾成功验证过，就保留 Pro，避免把可恢复的联网问题伪装成 license 丢失。
+            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+            lastVerificationProblem = .network(reason)
+            tier = lastVerifiedAt() == nil ? .free : .pro
         }
     }
 
@@ -244,8 +405,10 @@ public final class LicenseManager: ObservableObject {
         return Date(timeIntervalSince1970: timestamp)
     }
 
-    private func withinOfflineGrace() -> Bool {
-        guard let last = lastVerifiedAt() else { return false }
-        return now().timeIntervalSince(last) < Double(Self.offlineGraceDays) * 86400
+    private static func displayDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.dateStyle = .medium
+        formatter.timeStyle = .short
+        return formatter.string(from: date)
     }
 }

@@ -18,6 +18,8 @@ Environment:
   DUMBTRANS_SPARKLE_PUBLIC_ED_KEY     Sparkle public key override. Required in CI if Keychain is unavailable.
   DUMBTRANS_SPARKLE_FEED_URL          Appcast URL embedded in the app.
   DUMBTRANS_USAGE_TELEMETRY_URL       Anonymous usage event endpoint embedded in the app.
+  DUMBTRANS_LICENSE_PURCHASE_URL      Pro purchase/checkout URL embedded in the app. Defaults to the public pricing page.
+  DUMBTRANS_LICENSE_VERIFY_URL        Self-hosted license verification endpoint embedded in the app. Defaults to production gateway.
   DUMBTRANS_SPARKLE_DOWNLOAD_URL_PREFIX  URL prefix for update zip downloads.
   DUMBTRANS_SPARKLE_ED_KEY_FILE       Private EdDSA key file for generate_appcast.
   DUMBTRANS_APPCAST_PATH              Appcast file to write in the repo.
@@ -39,6 +41,8 @@ SPARKLE_ACCOUNT="${DUMBTRANS_SPARKLE_KEY_ACCOUNT:-com.whimsycode.dumbtrans-pro}"
 FEED_URL="${DUMBTRANS_SPARKLE_FEED_URL:-https://uxwangy-code.github.io/DumbTransPro/appcast.xml}"
 DOWNLOAD_URL_PREFIX="${DUMBTRANS_SPARKLE_DOWNLOAD_URL_PREFIX:-https://github.com/uxwangy-code/DumbTransPro/releases/download/v${VERSION}/}"
 PRODUCT_LINK="${DUMBTRANS_PRODUCT_LINK:-https://github.com/uxwangy-code/DumbTransPro}"
+LICENSE_PURCHASE_URL="${DUMBTRANS_LICENSE_PURCHASE_URL:-https://uxwangy-code.github.io/DumbTransPro/#pricing}"
+LICENSE_VERIFY_URL="${DUMBTRANS_LICENSE_VERIFY_URL:-https://license.whimsycode.com/api/licenses/verify}"
 APPCAST_PATH="${DUMBTRANS_APPCAST_PATH:-$PROJECT_DIR/docs/appcast.xml}"
 WORK_DIR="${DUMBTRANS_RELEASE_WORK_DIR:-$PROJECT_DIR/build/sparkle-release/v${VERSION}}"
 ARCHIVE_NAME="DumbTransPro-${VERSION}.zip"
@@ -69,10 +73,15 @@ rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
 
 echo "Building release app v${VERSION} (${BUILD})..."
+echo "  License purchase URL: $LICENSE_PURCHASE_URL"
+echo "  License verify URL:   $LICENSE_VERIFY_URL"
 DUMBTRANS_VERSION="$VERSION" \
 DUMBTRANS_BUILD="$BUILD" \
 DUMBTRANS_SPARKLE_FEED_URL="$FEED_URL" \
 DUMBTRANS_SPARKLE_PUBLIC_ED_KEY="$PUBLIC_KEY" \
+DUMBTRANS_USAGE_TELEMETRY_URL="${DUMBTRANS_USAGE_TELEMETRY_URL:-}" \
+DUMBTRANS_LICENSE_PURCHASE_URL="$LICENSE_PURCHASE_URL" \
+DUMBTRANS_LICENSE_VERIFY_URL="$LICENSE_VERIFY_URL" \
     bash "$PROJECT_DIR/scripts/bundle.sh"
 
 echo "Creating update archive: $ARCHIVE_PATH"

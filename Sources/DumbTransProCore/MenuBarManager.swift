@@ -56,6 +56,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         setupHotkey()
         observeHotkeyChanges()
         startAccessibilityWatcher()
+        updateManager.startBackgroundChecks()
         Task { [licenseManager] in
             await licenseManager.revalidateIfNeeded()
         }

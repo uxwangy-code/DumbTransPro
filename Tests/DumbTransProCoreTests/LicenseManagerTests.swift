@@ -7,6 +7,7 @@ private struct MockVerifier: LicenseVerifying {
         case valid
         case invalid(String)
         case networkError
+        case gatewayServerError
     }
 
     let behavior: Behavior
@@ -19,6 +20,8 @@ private struct MockVerifier: LicenseVerifying {
             return LicenseVerification(isValid: false, failureReason: reason)
         case .networkError:
             throw LicenseError.network("offline")
+        case .gatewayServerError:
+            throw LicenseError.network("HTTP 500")
         }
     }
 }
@@ -129,7 +132,7 @@ struct LicenseManagerTests {
         #expect(manager.remainingToday == LicenseManager.freeDailyLimit)
     }
 
-    @Test func offlineWithinGraceKeepsPro() async throws {
+    @Test func offlineAfterRecentVerificationKeepsPro() async throws {
         let service = freshService()
         defer { try? KeychainHelper.delete(service: service, account: licenseAccount) }
 
@@ -138,15 +141,15 @@ struct LicenseManagerTests {
         let activated = makeManager(defaults: defaults, service: service, behavior: .valid, clock: clock)
         try await activated.activate(key: "KEY")
 
-        // 几天后断网重启：宽限期内仍是 Pro
-        clock.advance(days: Double(LicenseManager.offlineGraceDays) - 1)
+        // 几天后断网重启：只要本机曾成功验证过，联网失败不应让用户掉回免费版
+        clock.advance(days: 2)
         let offline = makeManager(defaults: defaults, service: service, behavior: .networkError, clock: clock)
         #expect(offline.tier == .pro)
         await offline.revalidateIfNeeded()
         #expect(offline.tier == .pro)
     }
 
-    @Test func offlineBeyondGraceDegradesButKeepsKey() async throws {
+    @Test func offlineBeyondGraceKeepsProAndSurfacesRetryGuidance() async throws {
         let service = freshService()
         defer { try? KeychainHelper.delete(service: service, account: licenseAccount) }
 
@@ -155,15 +158,45 @@ struct LicenseManagerTests {
         let activated = makeManager(defaults: defaults, service: service, behavior: .valid, clock: clock)
         try await activated.activate(key: "KEY")
 
-        clock.advance(days: Double(LicenseManager.offlineGraceDays) + 1)
+        clock.advance(days: 15)
         let offline = makeManager(defaults: defaults, service: service, behavior: .networkError, clock: clock)
-        #expect(offline.tier == .free)
-        // key 没被摘除，网络恢复后复验可回到 Pro
+        #expect(offline.tier == .pro)
+        await offline.revalidateIfNeeded()
+        #expect(offline.tier == .pro)
+        if case .network(let reason) = offline.lastVerificationProblem {
+            #expect(reason.contains("offline"))
+        } else {
+            Issue.record("Expected network verification problem")
+        }
+        #expect(offline.proStatusDetail?.contains("可尝试挂🪜") == true)
         #expect(try KeychainHelper.load(service: service, account: licenseAccount) == "KEY")
 
         let backOnline = makeManager(defaults: defaults, service: service, behavior: .valid, clock: clock)
         await backOnline.revalidateIfNeeded()
         #expect(backOnline.tier == .pro)
+        #expect(backOnline.lastVerificationProblem == nil)
+    }
+
+    @Test func gatewayServerErrorDuringRevalidationKeepsProAndKey() async throws {
+        let service = freshService()
+        defer { try? KeychainHelper.delete(service: service, account: licenseAccount) }
+
+        let defaults = freshDefaults()
+        let clock = Clock()
+        let activated = makeManager(defaults: defaults, service: service, behavior: .valid, clock: clock)
+        try await activated.activate(key: "DTP-KEY-123")
+
+        clock.advance(days: Double(LicenseManager.revalidationIntervalDays) + 1)
+        let serverError = makeManager(defaults: defaults, service: service, behavior: .gatewayServerError, clock: clock)
+        await serverError.revalidateIfNeeded()
+
+        #expect(serverError.tier == .pro)
+        if case .network(let reason) = serverError.lastVerificationProblem {
+            #expect(reason.contains("HTTP 500"))
+        } else {
+            Issue.record("Expected server error to surface as network verification problem")
+        }
+        #expect(try KeychainHelper.load(service: service, account: licenseAccount) == "DTP-KEY-123")
     }
 
     @Test func revalidateRemovesExplicitlyInvalidKey() async throws {
@@ -191,5 +224,145 @@ struct LicenseManagerTests {
         manager.deactivate()
         #expect(manager.tier == .free)
         #expect(try KeychainHelper.load(service: service, account: licenseAccount) == nil)
+    }
+
+    @Test func compositeVerifierFallsBackFromNewChannelToLegacyChannel() async throws {
+        let verifier = CompositeLicenseVerifier(verifiers: [
+            MockVerifier(behavior: .invalid("not found")),
+            MockVerifier(behavior: .valid),
+        ])
+
+        let result = try await verifier.verify(key: "LEGACY-GUMROAD-KEY", incrementUses: false)
+
+        #expect(result.isValid)
+    }
+}
+
+@Suite(.serialized)
+struct LicenseGatewayVerifierTests {
+    private func makeTestSession() -> URLSession {
+        let config = URLSessionConfiguration.ephemeral
+        config.protocolClasses = [LicenseURLProtocol.self]
+        return URLSession(configuration: config)
+    }
+
+    @Test func activationPostsJSONBodyToConfiguredEndpoint() async throws {
+        LicenseURLProtocol.reset()
+        LicenseURLProtocol.mockResponseData = Data("""
+        {
+          "valid": true
+        }
+        """.utf8)
+
+        let verifier = LicenseGatewayVerifier(
+            session: makeTestSession(),
+            verifyURL: URL(string: "https://license.example.com/api/licenses/verify")!
+        )
+
+        let result = try await verifier.verify(key: "DTP-KEY-123", incrementUses: true)
+
+        #expect(result.isValid)
+        #expect(LicenseURLProtocol.lastRequest?.url?.absoluteString == "https://license.example.com/api/licenses/verify")
+        #expect(LicenseURLProtocol.lastRequest?.value(forHTTPHeaderField: "Content-Type") == "application/json")
+        let body = String(data: try #require(LicenseURLProtocol.lastRequestBody), encoding: .utf8) ?? ""
+        #expect(body.contains("\"license_key\":\"DTP-KEY-123\""))
+        #expect(body.contains("\"increment_uses\":true"))
+        #expect(body.contains("\"app\":\"DumbTransPro\""))
+    }
+
+    @Test func validationRejectsInvalidGatewayResponse() async throws {
+        LicenseURLProtocol.reset()
+        LicenseURLProtocol.mockResponseData = Data("""
+        {
+          "valid": false,
+          "reason": "refunded"
+        }
+        """.utf8)
+
+        let verifier = LicenseGatewayVerifier(
+            session: makeTestSession(),
+            verifyURL: URL(string: "https://license.example.com/api/licenses/verify")!
+        )
+
+        let result = try await verifier.verify(key: "REFUNDED-KEY", incrementUses: false)
+
+        #expect(!result.isValid)
+        #expect(result.failureReason == "refunded")
+    }
+
+    @Test func serverErrorThrowsNetworkInsteadOfInvalidatingLicense() async {
+        LicenseURLProtocol.reset()
+        LicenseURLProtocol.mockStatusCode = 500
+        LicenseURLProtocol.mockResponseData = Data("""
+        {
+          "error": "service_unavailable"
+        }
+        """.utf8)
+
+        let verifier = LicenseGatewayVerifier(
+            session: makeTestSession(),
+            verifyURL: URL(string: "https://license.example.com/api/licenses/verify")!
+        )
+
+        await #expect(throws: LicenseError.network("HTTP 500")) {
+            _ = try await verifier.verify(key: "DTP-KEY-123", incrementUses: false)
+        }
+    }
+}
+
+final class LicenseURLProtocol: URLProtocol, @unchecked Sendable {
+    nonisolated(unsafe) static var mockResponseData: Data?
+    nonisolated(unsafe) static var mockStatusCode: Int = 200
+    nonisolated(unsafe) static var lastRequest: URLRequest?
+    nonisolated(unsafe) static var lastRequestBody: Data?
+
+    static func reset() {
+        mockResponseData = nil
+        mockStatusCode = 200
+        lastRequest = nil
+        lastRequestBody = nil
+    }
+
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+
+    override func startLoading() {
+        Self.lastRequest = request
+        Self.lastRequestBody = request.httpBody ?? Self.readBodyStream(from: request)
+
+        let response = HTTPURLResponse(
+            url: request.url!,
+            statusCode: Self.mockStatusCode,
+            httpVersion: nil,
+            headerFields: nil
+        )!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        if let payload = Self.mockResponseData {
+            client?.urlProtocol(self, didLoad: payload)
+        }
+        client?.urlProtocolDidFinishLoading(self)
+    }
+
+    override func stopLoading() {}
+
+    private static func readBodyStream(from request: URLRequest) -> Data? {
+        guard let stream = request.httpBodyStream else { return nil }
+        stream.open()
+        defer { stream.close() }
+
+        var data = Data()
+        let bufferSize = 1024
+        let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
+        defer { buffer.deallocate() }
+
+        while stream.hasBytesAvailable {
+            let count = stream.read(buffer, maxLength: bufferSize)
+            if count > 0 {
+                data.append(buffer, count: count)
+            } else {
+                break
+            }
+        }
+        return data.isEmpty ? nil : data
     }
 }

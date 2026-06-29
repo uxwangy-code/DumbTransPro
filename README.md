@@ -108,10 +108,13 @@ bash scripts/verify-telemetry-local.sh
 cat build/telemetry/events.jsonl
 ```
 
-正式查看用户更新后的匿名使用数据，需要先部署 HTTPS 收集端，再在打包/发版时设置：
+正式查看用户更新后的匿名使用数据，需要先部署 HTTPS 收集端，再在打包/发版时设置。切到自建授权服务时，同时注入购买入口和 license 校验接口；未配置校验接口时会继续使用 Gumroad 旧 key 校验：
 
 ```bash
-DUMBTRANS_USAGE_TELEMETRY_URL="https://your-domain.example/events" bash scripts/bundle.sh
+DUMBTRANS_USAGE_TELEMETRY_URL="https://your-domain.example/events" \
+DUMBTRANS_LICENSE_PURCHASE_URL="https://uxwangy-code.github.io/DumbTransPro/#pricing" \
+DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify" \
+  bash scripts/bundle.sh
 ```
 
 GitHub Pages 只能托管静态文件，不能接收 App 发来的 `POST /events`。

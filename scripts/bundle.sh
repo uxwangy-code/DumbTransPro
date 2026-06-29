@@ -31,6 +31,8 @@ Environment:
   DUMBTRANS_BUILD             CFBundleVersion override.
   DUMBTRANS_SPARKLE_FEED_URL  Sparkle appcast URL override.
   DUMBTRANS_USAGE_TELEMETRY_URL  Optional anonymous usage event endpoint.
+  DUMBTRANS_LICENSE_PURCHASE_URL  Optional Pro purchase/checkout URL.
+  DUMBTRANS_LICENSE_VERIFY_URL  Optional self-hosted license verification endpoint.
   DUMBTRANS_SPARKLE_KEY_ACCOUNT  Keychain account for Sparkle EdDSA key.
   DUMBTRANS_SPARKLE_PUBLIC_ED_KEY  Sparkle EdDSA public key for update verification.
 EOF
@@ -154,6 +156,8 @@ configure_info_plist() {
     set_plist_string "CFBundleVersion" "${DUMBTRANS_BUILD:-}"
     set_plist_string "SUFeedURL" "${DUMBTRANS_SPARKLE_FEED_URL:-}"
     set_plist_string "DTPUsageTelemetryURL" "${DUMBTRANS_USAGE_TELEMETRY_URL:-}"
+    set_plist_string "DTPLicensePurchaseURL" "${DUMBTRANS_LICENSE_PURCHASE_URL:-}"
+    set_plist_string "DTPLicenseVerifyURL" "${DUMBTRANS_LICENSE_VERIFY_URL:-}"
     allow_local_telemetry_networking_if_needed "${DUMBTRANS_USAGE_TELEMETRY_URL:-}"
 
     local public_key="${DUMBTRANS_SPARKLE_PUBLIC_ED_KEY:-}"

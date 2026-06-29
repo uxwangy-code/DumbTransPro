@@ -42,7 +42,7 @@ struct SettingsPanelModelTests {
         )
 
         #expect(url.scheme == "mailto")
-        #expect(url.path == "hi@whimsycode.com")
+        #expect(url.absoluteString.hasPrefix("mailto:hi@whimsycode.com"))
 
         let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
         let queryItems = Dictionary(uniqueKeysWithValues: (components.queryItems ?? []).compactMap { item in

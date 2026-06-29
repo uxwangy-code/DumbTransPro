@@ -424,13 +424,20 @@ public struct SettingsView: View {
             Text("Pro")
                 .font(.subheadline)
             if license.tier == .pro {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.seal.fill")
-                        .foregroundStyle(.green)
-                    Text("Pro 已激活" + (license.maskedKey.map { "（\($0)）" } ?? ""))
-                    Spacer()
-                    Button("停用此设备") {
-                        license.deactivate()
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Image(systemName: "checkmark.seal.fill")
+                            .foregroundStyle(.green)
+                        Text("Pro 已激活" + (license.maskedKey.map { "（\($0)）" } ?? ""))
+                        Spacer()
+                        Button("停用此设备") {
+                            license.deactivate()
+                        }
+                    }
+                    if let detail = license.proStatusDetail {
+                        Text(detail)
+                            .font(.caption)
+                            .foregroundStyle(license.lastVerificationProblem == nil ? Color.secondary : Color.orange)
                     }
                 }
             } else {
@@ -445,7 +452,7 @@ public struct SettingsView: View {
                         activateLicense()
                     }
                     .disabled(isActivatingLicense || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Link(destination: GumroadLicenseVerifier.purchaseURL) {
+                    Link(destination: LicensePurchase.url()) {
                         HStack(spacing: 2) {
                             Text("获取 License")
                             Image(systemName: "arrow.up.right")
@@ -460,6 +467,9 @@ public struct SettingsView: View {
                         .font(.caption)
                         .foregroundStyle(.red)
                 }
+                Text("如果激活时提示网络不可用，可以尝试挂🪜后重试。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
     }

@@ -9,6 +9,51 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
         case checking
         case updateAvailable(String)
         case updating
+
+        public var menuTitle: String {
+            switch self {
+            case .unavailable:
+                return "检查更新…"
+            case .idle:
+                return "检查更新…"
+            case .checking:
+                return "正在检查更新…"
+            case .updateAvailable(let version):
+                return "发现新版本 \(version)…"
+            case .updating:
+                return "正在更新…"
+            }
+        }
+    }
+
+    public struct Alert: Equatable {
+        public let messageText: String
+        public let informativeText: String
+        public let buttonTitle: String
+
+        public static func upToDate(currentVersion: String) -> Alert {
+            Alert(
+                messageText: "当前已是最新版本",
+                informativeText: "当前版本：\(currentVersion)",
+                buttonTitle: "好"
+            )
+        }
+
+        public static func unavailable() -> Alert {
+            Alert(
+                messageText: "更新功能尚未配置",
+                informativeText: "需要在发布构建中配置 Sparkle appcast 地址和 EdDSA 公钥后，才能检查并安装更新。",
+                buttonTitle: "好"
+            )
+        }
+
+        public static func failed(_ reason: String) -> Alert {
+            Alert(
+                messageText: "暂时无法检查更新",
+                informativeText: "\(reason)。请检查网络后重试。",
+                buttonTitle: "好"
+            )
+        }
     }
 
     public var onStateChange: (() -> Void)?
@@ -24,6 +69,8 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
 
     private let bundle: Bundle
     private var updaterController: SPUStandardUpdaterController?
+    private var backgroundTimer: Timer?
+    private var isUserInitiatedCheck = false
 
     public init(bundle: Bundle = .main) {
         self.bundle = bundle
@@ -43,35 +90,59 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     public var menuTitle: String {
-        switch state {
-        case .unavailable:
-            return "检查更新…"
-        case .idle:
-            return "检查更新…"
-        case .checking:
-            return "正在检查更新…"
-        case .updateAvailable(let version):
-            return "发现新版本 \(version)…"
-        case .updating:
-            return "正在更新…"
-        }
+        state.menuTitle
     }
 
     public func configureMenuItem(_ item: NSMenuItem) {
         item.target = self
         item.action = #selector(checkForUpdates(_:))
-        item.isEnabled = state != .checking && state != .updating
+        item.isEnabled = canCheckForUpdates
         item.image = NSImage(systemSymbolName: "arrow.triangle.2.circlepath", accessibilityDescription: nil)
+    }
+
+    public func startBackgroundChecks(initialDelay: TimeInterval = 5, interval: TimeInterval = 86_400) {
+        guard updaterController != nil else { return }
+        backgroundTimer?.invalidate()
+
+        Timer.scheduledTimer(withTimeInterval: initialDelay, repeats: false) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.checkForUpdateInformation()
+            }
+        }
+
+        backgroundTimer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.checkForUpdateInformation()
+            }
+        }
     }
 
     @objc private func checkForUpdates(_ sender: Any?) {
         guard let updaterController else {
-            showUnavailableAlert()
+            showAlert(.unavailable())
             return
         }
 
+        isUserInitiatedCheck = true
         state = .checking
         updaterController.checkForUpdates(sender)
+    }
+
+    private var canCheckForUpdates: Bool {
+        guard state != .checking && state != .updating else { return false }
+        guard let updaterController else { return true }
+        return updaterController.updater.canCheckForUpdates
+    }
+
+    private func checkForUpdateInformation() {
+        guard let updater = updaterController?.updater,
+              state != .checking,
+              state != .updating,
+              updater.canCheckForUpdates else {
+            return
+        }
+        isUserInitiatedCheck = false
+        updater.checkForUpdateInformation()
     }
 
     public func updater(_ updater: SPUUpdater, didFindValidUpdate item: SUAppcastItem) {
@@ -79,10 +150,18 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     public func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
+        if isUserInitiatedCheck {
+            showAlert(.upToDate(currentVersion: currentVersion))
+        }
+        isUserInitiatedCheck = false
         state = .idle
     }
 
     public func updater(_ updater: SPUUpdater, didAbortWithError error: Error) {
+        if isUserInitiatedCheck {
+            showAlert(.failed(error.localizedDescription))
+        }
+        isUserInitiatedCheck = false
         state = .idle
     }
 
@@ -90,12 +169,12 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
         state = .updating
     }
 
-    private func showUnavailableAlert() {
+    private func showAlert(_ alertModel: Alert) {
         let alert = NSAlert()
-        alert.messageText = "更新功能尚未配置"
-        alert.informativeText = "需要在发布构建中配置 Sparkle appcast 地址和 EdDSA 公钥后，才能检查并安装更新。"
+        alert.messageText = alertModel.messageText
+        alert.informativeText = alertModel.informativeText
         alert.alertStyle = .informational
-        alert.addButton(withTitle: "好")
+        alert.addButton(withTitle: alertModel.buttonTitle)
         NSApp.activate(ignoringOtherApps: true)
         alert.runModal()
     }
