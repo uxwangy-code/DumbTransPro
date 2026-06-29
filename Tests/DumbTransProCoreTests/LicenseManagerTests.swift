@@ -7,6 +7,7 @@ private struct MockVerifier: LicenseVerifying {
         case valid
         case invalid(String)
         case networkError
+        case gatewayServerError
     }
 
     let behavior: Behavior
@@ -19,6 +20,8 @@ private struct MockVerifier: LicenseVerifying {
             return LicenseVerification(isValid: false, failureReason: reason)
         case .networkError:
             throw LicenseError.network("offline")
+        case .gatewayServerError:
+            throw LicenseError.network("HTTP 500")
         }
     }
 }
@@ -174,6 +177,28 @@ struct LicenseManagerTests {
         #expect(backOnline.lastVerificationProblem == nil)
     }
 
+    @Test func gatewayServerErrorDuringRevalidationKeepsProAndKey() async throws {
+        let service = freshService()
+        defer { try? KeychainHelper.delete(service: service, account: licenseAccount) }
+
+        let defaults = freshDefaults()
+        let clock = Clock()
+        let activated = makeManager(defaults: defaults, service: service, behavior: .valid, clock: clock)
+        try await activated.activate(key: "DTP-KEY-123")
+
+        clock.advance(days: Double(LicenseManager.revalidationIntervalDays) + 1)
+        let serverError = makeManager(defaults: defaults, service: service, behavior: .gatewayServerError, clock: clock)
+        await serverError.revalidateIfNeeded()
+
+        #expect(serverError.tier == .pro)
+        if case .network(let reason) = serverError.lastVerificationProblem {
+            #expect(reason.contains("HTTP 500"))
+        } else {
+            Issue.record("Expected server error to surface as network verification problem")
+        }
+        #expect(try KeychainHelper.load(service: service, account: licenseAccount) == "DTP-KEY-123")
+    }
+
     @Test func revalidateRemovesExplicitlyInvalidKey() async throws {
         let service = freshService()
         defer { try? KeychainHelper.delete(service: service, account: licenseAccount) }
@@ -263,6 +288,25 @@ struct LicenseGatewayVerifierTests {
 
         #expect(!result.isValid)
         #expect(result.failureReason == "refunded")
+    }
+
+    @Test func serverErrorThrowsNetworkInsteadOfInvalidatingLicense() async {
+        LicenseURLProtocol.reset()
+        LicenseURLProtocol.mockStatusCode = 500
+        LicenseURLProtocol.mockResponseData = Data("""
+        {
+          "error": "service_unavailable"
+        }
+        """.utf8)
+
+        let verifier = LicenseGatewayVerifier(
+            session: makeTestSession(),
+            verifyURL: URL(string: "https://license.example.com/api/licenses/verify")!
+        )
+
+        await #expect(throws: LicenseError.network("HTTP 500")) {
+            _ = try await verifier.verify(key: "DTP-KEY-123", incrementUses: false)
+        }
     }
 }
 

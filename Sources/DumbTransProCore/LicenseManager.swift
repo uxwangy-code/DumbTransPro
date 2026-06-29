@@ -158,7 +158,7 @@ public struct LicenseGatewayVerifier: LicenseVerifying {
         }
 
         guard (200..<300).contains(http.statusCode) else {
-            return LicenseVerification(isValid: false, failureReason: failureReason(in: json) ?? "HTTP \(http.statusCode)")
+            throw LicenseError.network("HTTP \(http.statusCode)")
         }
 
         let success = json["valid"] as? Bool ?? json["is_valid"] as? Bool ?? false
