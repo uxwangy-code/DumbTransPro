@@ -18,6 +18,8 @@ Environment:
   DUMBTRANS_SPARKLE_PUBLIC_ED_KEY     Sparkle public key override. Required in CI if Keychain is unavailable.
   DUMBTRANS_SPARKLE_FEED_URL          Appcast URL embedded in the app.
   DUMBTRANS_USAGE_TELEMETRY_URL       Anonymous usage event endpoint embedded in the app.
+  DUMBTRANS_LICENSE_PURCHASE_URL      Pro purchase/checkout URL embedded in the app.
+  DUMBTRANS_LICENSE_VERIFY_URL        Self-hosted license verification endpoint embedded in the app.
   DUMBTRANS_SPARKLE_DOWNLOAD_URL_PREFIX  URL prefix for update zip downloads.
   DUMBTRANS_SPARKLE_ED_KEY_FILE       Private EdDSA key file for generate_appcast.
   DUMBTRANS_APPCAST_PATH              Appcast file to write in the repo.
@@ -73,6 +75,9 @@ DUMBTRANS_VERSION="$VERSION" \
 DUMBTRANS_BUILD="$BUILD" \
 DUMBTRANS_SPARKLE_FEED_URL="$FEED_URL" \
 DUMBTRANS_SPARKLE_PUBLIC_ED_KEY="$PUBLIC_KEY" \
+DUMBTRANS_USAGE_TELEMETRY_URL="${DUMBTRANS_USAGE_TELEMETRY_URL:-}" \
+DUMBTRANS_LICENSE_PURCHASE_URL="${DUMBTRANS_LICENSE_PURCHASE_URL:-}" \
+DUMBTRANS_LICENSE_VERIFY_URL="${DUMBTRANS_LICENSE_VERIFY_URL:-}" \
     bash "$PROJECT_DIR/scripts/bundle.sh"
 
 echo "Creating update archive: $ARCHIVE_PATH"
