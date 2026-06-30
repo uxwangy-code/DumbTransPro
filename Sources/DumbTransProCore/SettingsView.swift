@@ -275,7 +275,9 @@ public struct SettingsView: View {
                     Text(hint)
                         .foregroundStyle(.secondary)
                     if provider == .friday {
-                        Link(destination: Self.fridayTenantLookupURL) {
+                        Button {
+                            openExternalURL(Self.fridayTenantLookupURL)
+                        } label: {
                             HStack(spacing: 2) {
                                 Text("前往查找")
                                 Image(systemName: "arrow.up.right")
@@ -452,7 +454,9 @@ public struct SettingsView: View {
                         activateLicense()
                     }
                     .disabled(isActivatingLicense || licenseKeyInput.trimmingCharacters(in: .whitespaces).isEmpty)
-                    Link(destination: LicensePurchase.url()) {
+                    Button {
+                        openExternalURL(LicensePurchase.url())
+                    } label: {
                         HStack(spacing: 2) {
                             Text("获取 License")
                             Image(systemName: "arrow.up.right")
@@ -521,15 +525,27 @@ public struct SettingsView: View {
 
     private var aboutLinks: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Link(destination: URL(string: "https://uxwangy-code.github.io/DumbTransPro/")!) {
+            Button {
+                openExternalURL(URL(string: "https://uxwangy-code.github.io/DumbTransPro/")!)
+            } label: {
                 Label("官网", systemImage: "safari")
             }
-            Link(destination: URL(string: "https://github.com/uxwangy-code/DumbTransPro")!) {
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            Button {
+                openExternalURL(URL(string: "https://github.com/uxwangy-code/DumbTransPro")!)
+            } label: {
                 Label("GitHub", systemImage: "chevron.left.forwardslash.chevron.right")
             }
-            Link(destination: URL(string: "https://uxwangy-code.github.io/DumbTransPro/privacy.html")!) {
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
+            Button {
+                openExternalURL(URL(string: "https://uxwangy-code.github.io/DumbTransPro/privacy.html")!)
+            } label: {
                 Label("隐私政策", systemImage: "hand.raised")
             }
+            .buttonStyle(.plain)
+            .foregroundStyle(Color.accentColor)
         }
     }
 
@@ -558,7 +574,19 @@ public struct SettingsView: View {
     }
 
     private func openFeedbackMail() {
-        NSWorkspace.shared.open(SettingsFeedbackMail.url(context: currentFeedbackContext))
+        openExternalURL(SettingsFeedbackMail.url(context: currentFeedbackContext))
+    }
+
+    private func openExternalURL(_ url: URL) {
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        configuration.promptsUserIfNeeded = true
+        NSWorkspace.shared.open(url, configuration: configuration) { app, _ in
+            guard let app else { return }
+            DispatchQueue.main.async {
+                app.activate(options: [.activateAllWindows])
+            }
+        }
     }
 
     private func activateLicense() {
