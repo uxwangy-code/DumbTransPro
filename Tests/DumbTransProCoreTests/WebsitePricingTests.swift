@@ -54,6 +54,23 @@ struct WebsitePricingTests {
         #expect(!script.contains("DUMBTRANS_LICENSE_VERIFY_URL=\"${DUMBTRANS_LICENSE_VERIFY_URL:-}\""))
     }
 
+    @Test func releaseScriptEmbedsProductionTelemetryURLByDefault() throws {
+        let script = try releaseUpdateScript()
+
+        #expect(script.contains("USAGE_TELEMETRY_URL=\"${DUMBTRANS_USAGE_TELEMETRY_URL:-https://dumbtranspro-telemetry.whimsycode.workers.dev/events}\""))
+        #expect(script.contains("DUMBTRANS_USAGE_TELEMETRY_URL=\"$USAGE_TELEMETRY_URL\""))
+        #expect(!script.contains("DUMBTRANS_USAGE_TELEMETRY_URL=\"${DUMBTRANS_USAGE_TELEMETRY_URL:-}\""))
+    }
+
+    @Test func releaseScriptChecksBuiltArtifactConfiguration() throws {
+        let script = try releaseUpdateScript()
+
+        #expect(script.contains("scripts/check-release-artifact.sh"))
+        #expect(script.contains("DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL=\"$USAGE_TELEMETRY_URL\""))
+        #expect(script.contains("DUMBTRANS_EXPECTED_LICENSE_PURCHASE_URL=\"$LICENSE_PURCHASE_URL\""))
+        #expect(script.contains("DUMBTRANS_EXPECTED_LICENSE_VERIFY_URL=\"$LICENSE_VERIFY_URL\""))
+    }
+
     private func homepageHTML() throws -> String {
         let testFile = URL(fileURLWithPath: #filePath)
         let repoRoot = testFile

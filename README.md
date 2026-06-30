@@ -119,6 +119,8 @@ DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify
 
 GitHub Pages 只能托管静态文件，不能接收 App 发来的 `POST /events`。
 
+正式发版请走 `scripts/release-update.sh`。它默认会把生产匿名使用数据端点、购买入口和 license 校验接口写进发布包，并在打包 zip 前调用 `scripts/check-release-artifact.sh` 检查 `Info.plist`；缺少 `DTPUsageTelemetryURL`、`DTPLicensePurchaseURL`、`DTPLicenseVerifyURL` 或版本号不匹配时会直接失败。
+
 ## 项目结构
 
 ```text

@@ -10,7 +10,22 @@ This note captures the context for the `codex/release-lifecycle-ux` branch so a 
 - Settings now shows Pro verification status, including "last verified" and retry guidance when network verification is currently unavailable.
 - Manual "Check for Updates" now gives visible feedback when the current version is already latest, and still opens the Sparkle update window when an update exists.
 - The app starts lightweight background update checks and changes the menu title to "发现新版本 x.x.x..." when a newer version is detected.
-- Release scripts now pass telemetry, purchase URL, and license verification URL through to the built app.
+- Release scripts now pass telemetry, purchase URL, and license verification URL through to the built app, then verify the generated app bundle before archiving it.
+
+## Release Configuration Gate
+
+`scripts/release-update.sh` defaults production builds to:
+
+```bash
+DUMBTRANS_USAGE_TELEMETRY_URL="https://dumbtranspro-telemetry.whimsycode.workers.dev/events"
+DUMBTRANS_LICENSE_PURCHASE_URL="https://uxwangy-code.github.io/DumbTransPro/#pricing"
+DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify"
+```
+
+Before creating the release zip, it calls `scripts/check-release-artifact.sh`.
+That check must fail if the built `Info.plist` is missing `DTPUsageTelemetryURL`,
+`DTPLicensePurchaseURL`, or `DTPLicenseVerifyURL`, or if the app version/build
+does not match the requested release.
 
 ## Commercial Direction
 

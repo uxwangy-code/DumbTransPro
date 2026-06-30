@@ -41,6 +41,7 @@ SPARKLE_ACCOUNT="${DUMBTRANS_SPARKLE_KEY_ACCOUNT:-com.whimsycode.dumbtrans-pro}"
 FEED_URL="${DUMBTRANS_SPARKLE_FEED_URL:-https://uxwangy-code.github.io/DumbTransPro/appcast.xml}"
 DOWNLOAD_URL_PREFIX="${DUMBTRANS_SPARKLE_DOWNLOAD_URL_PREFIX:-https://github.com/uxwangy-code/DumbTransPro/releases/download/v${VERSION}/}"
 PRODUCT_LINK="${DUMBTRANS_PRODUCT_LINK:-https://github.com/uxwangy-code/DumbTransPro}"
+USAGE_TELEMETRY_URL="${DUMBTRANS_USAGE_TELEMETRY_URL:-https://dumbtranspro-telemetry.whimsycode.workers.dev/events}"
 LICENSE_PURCHASE_URL="${DUMBTRANS_LICENSE_PURCHASE_URL:-https://uxwangy-code.github.io/DumbTransPro/#pricing}"
 LICENSE_VERIFY_URL="${DUMBTRANS_LICENSE_VERIFY_URL:-https://license.whimsycode.com/api/licenses/verify}"
 APPCAST_PATH="${DUMBTRANS_APPCAST_PATH:-$PROJECT_DIR/docs/appcast.xml}"
@@ -73,16 +74,26 @@ rm -rf "$WORK_DIR"
 mkdir -p "$WORK_DIR"
 
 echo "Building release app v${VERSION} (${BUILD})..."
+echo "  Usage telemetry URL: $USAGE_TELEMETRY_URL"
 echo "  License purchase URL: $LICENSE_PURCHASE_URL"
 echo "  License verify URL:   $LICENSE_VERIFY_URL"
 DUMBTRANS_VERSION="$VERSION" \
 DUMBTRANS_BUILD="$BUILD" \
 DUMBTRANS_SPARKLE_FEED_URL="$FEED_URL" \
 DUMBTRANS_SPARKLE_PUBLIC_ED_KEY="$PUBLIC_KEY" \
-DUMBTRANS_USAGE_TELEMETRY_URL="${DUMBTRANS_USAGE_TELEMETRY_URL:-}" \
+DUMBTRANS_USAGE_TELEMETRY_URL="$USAGE_TELEMETRY_URL" \
 DUMBTRANS_LICENSE_PURCHASE_URL="$LICENSE_PURCHASE_URL" \
 DUMBTRANS_LICENSE_VERIFY_URL="$LICENSE_VERIFY_URL" \
     bash "$PROJECT_DIR/scripts/bundle.sh"
+
+echo "Checking release app configuration..."
+DUMBTRANS_RELEASE_APP_PATH="$PROJECT_DIR/build/DumbTransPro.app" \
+DUMBTRANS_EXPECTED_VERSION="$VERSION" \
+DUMBTRANS_EXPECTED_BUILD="$BUILD" \
+DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL="$USAGE_TELEMETRY_URL" \
+DUMBTRANS_EXPECTED_LICENSE_PURCHASE_URL="$LICENSE_PURCHASE_URL" \
+DUMBTRANS_EXPECTED_LICENSE_VERIFY_URL="$LICENSE_VERIFY_URL" \
+    bash "$PROJECT_DIR/scripts/check-release-artifact.sh"
 
 echo "Creating update archive: $ARCHIVE_PATH"
 ditto -c -k --sequesterRsrc --keepParent "$PROJECT_DIR/build/DumbTransPro.app" "$ARCHIVE_PATH"
