@@ -3,6 +3,24 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.5.2</title>
+            <pubDate>Tue, 30 Jun 2026 21:33:44 +0800</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>152</sparkle:version>
+            <sparkle:shortVersionString>1.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# 瞎翻 Pro v1.5.2
+
+**本版修复若干已知问题，并优化整体使用体验。**
+
+- 修复部分场景下的交互细节问题。
+- 优化设置页和外部链接的使用体验。
+- 改进发布包配置检查，提升后续版本稳定性。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.5.2/DumbTransPro-1.5.2.zip" length="3821628" type="application/octet-stream" sparkle:edSignature="MlWCjgiNI6r9JgI6/aXudCUmgFALcy5YD4sxG1RlIIt989IKY2DeJP0W2OQHojBVmoVCD0HexwKWkW0e9i99CA=="/>
+        </item>
+        <item>
             <title>1.5.1</title>
             <pubDate>Mon, 29 Jun 2026 22:19:01 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
