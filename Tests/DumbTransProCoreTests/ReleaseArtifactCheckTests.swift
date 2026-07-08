@@ -20,7 +20,7 @@ struct ReleaseArtifactCheckTests {
         let appURL = try makeAppBundle(info: [
             "CFBundleShortVersionString": "1.5.2",
             "CFBundleVersion": "152",
-            "DTPUsageTelemetryURL": "https://dumbtranspro-telemetry.whimsycode.workers.dev/events",
+            "DTPUsageTelemetryURL": "https://telemetry.whimsycode.com/events",
             "DTPLicensePurchaseURL": "https://uxwangy-code.github.io/DumbTransPro/#pricing",
             "DTPLicenseVerifyURL": "https://license.whimsycode.com/api/licenses/verify",
         ])
@@ -38,7 +38,7 @@ struct ReleaseArtifactCheckTests {
             "DUMBTRANS_RELEASE_APP_PATH": appURL.path,
             "DUMBTRANS_EXPECTED_VERSION": "1.5.2",
             "DUMBTRANS_EXPECTED_BUILD": "152",
-            "DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL": "https://dumbtranspro-telemetry.whimsycode.workers.dev/events",
+            "DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL": "https://telemetry.whimsycode.com/events",
             "DUMBTRANS_EXPECTED_LICENSE_PURCHASE_URL": "https://uxwangy-code.github.io/DumbTransPro/#pricing",
             "DUMBTRANS_EXPECTED_LICENSE_VERIFY_URL": "https://license.whimsycode.com/api/licenses/verify",
         ]

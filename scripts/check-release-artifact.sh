@@ -6,7 +6,7 @@ APP_PATH="${DUMBTRANS_RELEASE_APP_PATH:-$PROJECT_DIR/build/DumbTransPro.app}"
 PLIST="$APP_PATH/Contents/Info.plist"
 PLISTBUDDY="/usr/libexec/PlistBuddy"
 
-EXPECTED_USAGE_TELEMETRY_URL="${DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL:-https://dumbtranspro-telemetry.whimsycode.workers.dev/events}"
+EXPECTED_USAGE_TELEMETRY_URL="${DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL:-https://telemetry.whimsycode.com/events}"
 EXPECTED_LICENSE_PURCHASE_URL="${DUMBTRANS_EXPECTED_LICENSE_PURCHASE_URL:-https://uxwangy-code.github.io/DumbTransPro/#pricing}"
 EXPECTED_LICENSE_VERIFY_URL="${DUMBTRANS_EXPECTED_LICENSE_VERIFY_URL:-https://license.whimsycode.com/api/licenses/verify}"
 EXPECTED_VERSION="${DUMBTRANS_EXPECTED_VERSION:-}"

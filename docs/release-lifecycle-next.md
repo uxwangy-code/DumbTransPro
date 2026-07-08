@@ -1,6 +1,6 @@
 # Release Lifecycle Handoff
 
-Last updated: 2026-06-29
+Last updated: 2026-07-08
 
 This note captures the context for the `codex/release-lifecycle-ux` branch so a new machine or chat can continue without replaying the whole discussion.
 
@@ -17,7 +17,7 @@ This note captures the context for the `codex/release-lifecycle-ux` branch so a 
 `scripts/release-update.sh` defaults production builds to:
 
 ```bash
-DUMBTRANS_USAGE_TELEMETRY_URL="https://dumbtranspro-telemetry.whimsycode.workers.dev/events"
+DUMBTRANS_USAGE_TELEMETRY_URL="https://telemetry.whimsycode.com/events"
 DUMBTRANS_LICENSE_PURCHASE_URL="https://uxwangy-code.github.io/DumbTransPro/#pricing"
 DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify"
 ```

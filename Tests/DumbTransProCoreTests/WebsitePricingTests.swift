@@ -57,7 +57,7 @@ struct WebsitePricingTests {
     @Test func releaseScriptEmbedsProductionTelemetryURLByDefault() throws {
         let script = try releaseUpdateScript()
 
-        #expect(script.contains("USAGE_TELEMETRY_URL=\"${DUMBTRANS_USAGE_TELEMETRY_URL:-https://dumbtranspro-telemetry.whimsycode.workers.dev/events}\""))
+        #expect(script.contains("USAGE_TELEMETRY_URL=\"${DUMBTRANS_USAGE_TELEMETRY_URL:-https://telemetry.whimsycode.com/events}\""))
         #expect(script.contains("DUMBTRANS_USAGE_TELEMETRY_URL=\"$USAGE_TELEMETRY_URL\""))
         #expect(!script.contains("DUMBTRANS_USAGE_TELEMETRY_URL=\"${DUMBTRANS_USAGE_TELEMETRY_URL:-}\""))
     }
