@@ -219,9 +219,19 @@ public struct SettingsView: View {
             Text("Endpoint")
                 .font(.subheadline)
             HStack(spacing: 8) {
-                TextField(provider.defaultBaseURL.isEmpty ? "https://..." : provider.defaultBaseURL, text: $baseURLOverride)
-                    .textFieldStyle(.roundedBorder)
+                if provider.allowsCustomEndpoint {
+                    TextField(provider.defaultBaseURL.isEmpty ? "https://..." : provider.defaultBaseURL, text: $baseURLOverride)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 340)
+                        .help("输入兼容 OpenAI 的 Endpoint")
+                } else {
+                    ReadOnlyTextField(
+                        text: baseURLOverride,
+                        placeholder: provider.defaultBaseURL.isEmpty ? "https://..." : provider.defaultBaseURL
+                    )
                     .frame(width: 340)
+                    .help("内置服务商仅支持默认或快捷选择 Endpoint")
+                }
                 if !provider.endpointPresets.isEmpty {
                     Menu {
                         ForEach(provider.endpointPresets, id: \.url) { preset in
@@ -638,6 +648,33 @@ public struct SettingsView: View {
         store.setTranslationStyle(translationStyle)
         onClose?()
         dismiss()
+    }
+}
+
+private struct ReadOnlyTextField: NSViewRepresentable {
+    let text: String
+    let placeholder: String
+
+    func makeNSView(context: Context) -> NSTextField {
+        let field = NSTextField()
+        field.placeholderString = placeholder
+        field.stringValue = text
+        field.isBordered = true
+        field.isBezeled = true
+        field.bezelStyle = .roundedBezel
+        field.drawsBackground = true
+        field.isEditable = false
+        field.isSelectable = true
+        field.textColor = .labelColor
+        return field
+    }
+
+    func updateNSView(_ field: NSTextField, context: Context) {
+        field.placeholderString = placeholder
+        if field.stringValue != text {
+            field.stringValue = text
+        }
+        field.textColor = .labelColor
     }
 }
 

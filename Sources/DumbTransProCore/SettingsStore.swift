@@ -74,6 +74,18 @@ public enum AIProvider: String, CaseIterable, Sendable, Identifiable {
         }
     }
 
+    public var allowsCustomEndpoint: Bool {
+        self == .custom
+    }
+
+    public func normalizedBaseURLOverride(_ baseURL: String) -> String {
+        let trimmed = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return "" }
+        guard !allowsCustomEndpoint else { return trimmed }
+        guard trimmed != defaultBaseURL else { return "" }
+        return endpointPresets.contains { $0.url == trimmed } ? trimmed : ""
+    }
+
     public var defaultModel: String {
         switch self {
         case .openai: return "gpt-4o-mini"
@@ -244,7 +256,7 @@ public final class SettingsStore: ObservableObject {
         attemptedLegacyAPIKeyProviders.removeAll()
 
         for provider in AIProvider.allCases {
-            let baseURL = defaults.string(forKey: overrideBaseURLKey(provider)) ?? ""
+            let baseURL = provider.normalizedBaseURLOverride(defaults.string(forKey: overrideBaseURLKey(provider)) ?? "")
             let model = defaults.string(forKey: overrideModelKey(provider)) ?? ""
             let apiKey = apiKeys[provider] ?? ""
             configs[provider] = ProviderConfig(apiKey: apiKey, baseURL: baseURL, model: model)
@@ -320,8 +332,13 @@ public final class SettingsStore: ObservableObject {
     }
 
     public func updateConfig(_ provider: AIProvider, _ config: ProviderConfig) {
-        configs[provider] = config
-        persistConfig(provider: provider, config: config)
+        let normalized = ProviderConfig(
+            apiKey: config.apiKey,
+            baseURL: provider.normalizedBaseURLOverride(config.baseURL),
+            model: config.model
+        )
+        configs[provider] = normalized
+        persistConfig(provider: provider, config: normalized)
     }
 
     public func setActiveProvider(_ provider: AIProvider) {

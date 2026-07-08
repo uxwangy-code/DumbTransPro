@@ -31,14 +31,6 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
         public let informativeText: String
         public let buttonTitle: String
 
-        public static func upToDate(currentVersion: String) -> Alert {
-            Alert(
-                messageText: "当前已是最新版本",
-                informativeText: "当前版本：\(currentVersion)",
-                buttonTitle: "好"
-            )
-        }
-
         public static func unavailable() -> Alert {
             Alert(
                 messageText: "更新功能尚未配置",
@@ -134,6 +126,11 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
         return updaterController.updater.canCheckForUpdates
     }
 
+    static func customNoUpdateAlert(isUserInitiated: Bool, currentVersion: String) -> Alert? {
+        // Sparkle's standard user driver already presents the user-initiated "up to date" result.
+        nil
+    }
+
     private func checkForUpdateInformation() {
         guard let updater = updaterController?.updater,
               state != .checking,
@@ -150,8 +147,8 @@ public final class UpdateManager: NSObject, SPUUpdaterDelegate {
     }
 
     public func updaterDidNotFindUpdate(_ updater: SPUUpdater, error: Error) {
-        if isUserInitiatedCheck {
-            showAlert(.upToDate(currentVersion: currentVersion))
+        if let alert = Self.customNoUpdateAlert(isUserInitiated: isUserInitiatedCheck, currentVersion: currentVersion) {
+            showAlert(alert)
         }
         isUserInitiatedCheck = false
         state = .idle

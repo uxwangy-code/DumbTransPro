@@ -10,11 +10,8 @@ struct UpdateManagerTests {
         #expect(UpdateManager.State.updating.menuTitle == "正在更新…")
     }
 
-    @Test func upToDateAlertCopyMatchesCurrentVersionPrompt() {
-        let alert = UpdateManager.Alert.upToDate(currentVersion: "1.5.0 (150)")
-
-        #expect(alert.messageText == "当前已是最新版本")
-        #expect(alert.informativeText == "当前版本：1.5.0 (150)")
-        #expect(alert.buttonTitle == "好")
+    @Test func noUpdateCallbackDoesNotShowCustomUpToDateAlert() {
+        #expect(UpdateManager.customNoUpdateAlert(isUserInitiated: true, currentVersion: "1.5.0 (150)") == nil)
+        #expect(UpdateManager.customNoUpdateAlert(isUserInitiated: false, currentVersion: "1.5.0 (150)") == nil)
     }
 }
