@@ -108,10 +108,12 @@ bash scripts/verify-telemetry-local.sh
 cat build/telemetry/events.jsonl
 ```
 
-正式查看用户更新后的匿名使用数据，需要先部署 HTTPS 收集端，再在打包/发版时设置。切到自建授权服务时，同时注入购买入口和 license 校验接口；未配置校验接口时会继续使用 Gumroad 旧 key 校验：
+生产匿名使用数据收集端在
+`https://telemetry.whimsycode.com/events`，由独立仓库
+`DumbTransProTelemetry` 维护。正式发版默认会写入这个端点；如需本地或临时环境验证，可以手动覆盖。切到自建授权服务时，同时注入购买入口和 license 校验接口；未配置校验接口时会继续使用 Gumroad 旧 key 校验：
 
 ```bash
-DUMBTRANS_USAGE_TELEMETRY_URL="https://your-domain.example/events" \
+DUMBTRANS_USAGE_TELEMETRY_URL="https://telemetry.whimsycode.com/events" \
 DUMBTRANS_LICENSE_PURCHASE_URL="https://uxwangy-code.github.io/DumbTransPro/#pricing" \
 DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify" \
   bash scripts/bundle.sh

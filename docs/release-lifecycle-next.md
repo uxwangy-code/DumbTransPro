@@ -1,16 +1,32 @@
-# Release Lifecycle Handoff
+# Release Lifecycle Notes
 
 Last updated: 2026-07-08
 
-This note captures the context for the `codex/release-lifecycle-ux` branch so a new machine or chat can continue without replaying the whole discussion.
+This note captures release configuration, commercial routing, and operational
+checks so a new machine or chat can continue without replaying the whole
+discussion.
 
-## What This Branch Changes
+## Current Production Status
+
+- Latest public release: `v1.5.3` / build `153`, published on 2026-07-08.
+- GitHub Release: <https://github.com/uxwangy-code/DumbTransPro/releases/tag/v1.5.3>
+- Release asset: `DumbTransPro-1.5.3.zip`, size `3827690` bytes.
+- Main release commit: `71dec4a Update appcast for v1.5.3`.
+- Public appcast: <https://uxwangy-code.github.io/DumbTransPro/appcast.xml>
+- Production telemetry endpoint embedded by default:
+  `https://telemetry.whimsycode.com/events`.
+- The telemetry `workers.dev` URL remains enabled only for older app builds.
+
+## What The Current Release Line Contains
 
 - License UX no longer downgrades a previously verified Pro user to Free just because network verification fails. Explicit invalid/refunded/disabled results still deactivate the key.
 - Settings now shows Pro verification status, including "last verified" and retry guidance when network verification is currently unavailable.
 - Manual "Check for Updates" now gives visible feedback when the current version is already latest, and still opens the Sparkle update window when an update exists.
 - The app starts lightweight background update checks and changes the menu title to "发现新版本 x.x.x..." when a newer version is detected.
 - Release scripts now pass telemetry, purchase URL, and license verification URL through to the built app, then verify the generated app bundle before archiving it.
+- `v1.5.3` embeds the custom telemetry domain so corporate networks that block
+  `workers.dev` can still report anonymous product events when the user has not
+  opted out.
 
 ## Release Configuration Gate
 
@@ -114,10 +130,13 @@ The deployed backend now:
 
 The app still keeps Gumroad verifier fallback for existing or overseas keys.
 
+## Operational Invariants
+
+- Keep future Qianxun batches import-before-upload: generate TXT, import the same TXT into the gateway, verify one suffix/key, then upload the TXT to Qianxun.
+- Keep `docs/index.html` domestic button pointed at the current Qianxun product URL.
+- Keep new app releases pointed at `https://telemetry.whimsycode.com/events`.
+
 ## Open Follow-Ups
 
-- Do not deploy the public website's Qianxun purchase entrance before the public latest app can verify `https://license.whimsycode.com/api/licenses/verify`.
-- Keep future Qianxun batches import-before-upload: generate TXT, import the same TXT into the gateway, verify one suffix/key, then upload the TXT to Qianxun.
 - Decide whether to migrate old Gumroad keys into the new backend or keep app-side Gumroad fallback for the first release.
-- Keep `docs/index.html` domestic button pointed at the current Qianxun product URL.
 - Review public legal copy again before launch, especially if the domestic payment provider becomes final.
