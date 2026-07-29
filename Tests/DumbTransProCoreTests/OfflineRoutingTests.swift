@@ -2,17 +2,55 @@ import Testing
 @testable import DumbTransProCore
 
 struct TranslationModeTests {
-    @Test func hasKeyAlwaysUsesAI() {
-        #expect(TranslationMode.resolve(hasAPIKey: true, offlineAvailable: true) == .ai)
-        #expect(TranslationMode.resolve(hasAPIKey: true, offlineAvailable: false) == .ai)
+    @Test func legacyPreferenceKeepsExistingAutomaticRouting() {
+        #expect(TranslationMode.resolve(preference: nil, hasAPIKey: true, offlineAvailable: true) == .ai)
+        #expect(TranslationMode.resolve(preference: nil, hasAPIKey: true, offlineAvailable: false) == .ai)
+        #expect(TranslationMode.resolve(preference: nil, hasAPIKey: false, offlineAvailable: true) == .offline)
+        #expect(TranslationMode.resolve(preference: nil, hasAPIKey: false, offlineAvailable: false) == .needsSetup)
     }
 
-    @Test func noKeyButOfflineAvailableUsesOffline() {
-        #expect(TranslationMode.resolve(hasAPIKey: false, offlineAvailable: true) == .offline)
+    @Test func explicitOfflineNeverFallsBackToConfiguredAI() {
+        #expect(TranslationMode.resolve(
+            preference: .offline,
+            hasAPIKey: true,
+            offlineAvailable: true
+        ) == .offline)
     }
 
-    @Test func noKeyNoOfflineNeedsSetup() {
-        #expect(TranslationMode.resolve(hasAPIKey: false, offlineAvailable: false) == .needsSetup)
+    @Test func explicitOfflineWithoutEngineDoesNotFallBackToAI() {
+        #expect(TranslationMode.resolve(
+            preference: .offline,
+            hasAPIKey: true,
+            offlineAvailable: false
+        ) == .needsSetup)
+    }
+
+    @Test func explicitAIUsesAIWhenConfigured() {
+        #expect(TranslationMode.resolve(
+            preference: .ai,
+            hasAPIKey: true,
+            offlineAvailable: true
+        ) == .ai)
+    }
+
+    @Test func explicitAIWithoutKeyDoesNotFallBackOffline() {
+        #expect(TranslationMode.resolve(
+            preference: .ai,
+            hasAPIKey: false,
+            offlineAvailable: true
+        ) == .needsSetup)
+    }
+}
+
+struct OfflineLanguagePairTests {
+    @Test func englishLookupUsesExplicitEnglishSource() {
+        #expect(OfflineLanguagePair.englishToChinese.sourceIdentifier == "en")
+        #expect(OfflineLanguagePair.englishToChinese.targetIdentifier == "zh-Hans")
+    }
+
+    @Test func chineseRewriteUsesExplicitSimplifiedChineseSource() {
+        #expect(OfflineLanguagePair.chineseToEnglish.sourceIdentifier == "zh-Hans")
+        #expect(OfflineLanguagePair.chineseToEnglish.targetIdentifier == "en")
     }
 }
 

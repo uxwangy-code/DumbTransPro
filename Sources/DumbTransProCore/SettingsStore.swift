@@ -8,6 +8,7 @@ private let legacyCustomBaseURLKey = "customBaseURL"
 private let legacyCustomModelKey = "customModel"
 private let activeProviderKey = "activeProvider"
 private let providerOverridesKey = "providerOverrides"
+private let translationEngineKey = "translationEngine"
 private let translationStyleKey = "translationStyle"
 private let shareAnonymousUsageDataKey = "shareAnonymousUsageData"
 
@@ -229,6 +230,7 @@ public struct ProviderConfig: Sendable, Equatable, Codable {
 @MainActor
 public final class SettingsStore: ObservableObject {
     @Published public private(set) var activeProvider: AIProvider?
+    @Published public private(set) var preferredTranslationEngine: TranslationEngine?
     @Published public var translationStyle: TranslationStyle = .natural
     @Published public private(set) var shareAnonymousUsageData: Bool = false
     @Published public private(set) var hotkeys: [TranslationAction: HotkeyConfig?] = [:]
@@ -267,6 +269,12 @@ public final class SettingsStore: ObservableObject {
             activeProvider = provider
         } else {
             activeProvider = nil
+        }
+
+        if let raw = defaults.string(forKey: translationEngineKey) {
+            preferredTranslationEngine = TranslationEngine(rawValue: raw)
+        } else {
+            preferredTranslationEngine = nil
         }
 
         if let raw = defaults.string(forKey: translationStyleKey),
@@ -344,6 +352,11 @@ public final class SettingsStore: ObservableObject {
     public func setActiveProvider(_ provider: AIProvider) {
         activeProvider = provider
         defaults.set(provider.rawValue, forKey: activeProviderKey)
+    }
+
+    public func setPreferredTranslationEngine(_ engine: TranslationEngine) {
+        preferredTranslationEngine = engine
+        defaults.set(engine.rawValue, forKey: translationEngineKey)
     }
 
     public func setTranslationStyle(_ style: TranslationStyle) {

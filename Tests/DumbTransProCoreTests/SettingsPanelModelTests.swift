@@ -16,6 +16,7 @@ struct SettingsPanelModelTests {
             "pro",
             "feedback-about",
         ])
+        #expect(SettingsPanelSection.translation.summary == "翻译方式、快捷键、翻译风格、离线语言包")
         #expect(SettingsPanelSection.feedbackAbout.summary == "邮件反馈、匿名使用数据、版本、官网、GitHub、隐私")
     }
 
@@ -29,6 +30,66 @@ struct SettingsPanelModelTests {
         #expect(!unselected.isSelected)
         #expect(unselected.accessibilityLabel == "Pro")
         #expect(unselected.accessibilityValue == nil)
+    }
+
+    @Test func offlineSettingsCanSaveWithoutAIProvider() {
+        #expect(TranslationSettingsPolicy.canSave(
+            engine: .offline,
+            hasProvider: false,
+            hasAPIKey: false
+        ))
+    }
+
+    @Test func aiSettingsRequireProviderAndKey() {
+        #expect(!TranslationSettingsPolicy.canSave(
+            engine: .ai,
+            hasProvider: true,
+            hasAPIKey: false
+        ))
+        #expect(!TranslationSettingsPolicy.canSave(
+            engine: .ai,
+            hasProvider: false,
+            hasAPIKey: true
+        ))
+        #expect(TranslationSettingsPolicy.canSave(
+            engine: .ai,
+            hasProvider: true,
+            hasAPIKey: true
+        ))
+    }
+
+    @Test func offlineUsesNaturalStyleWithoutOverwritingStoredAIStyle() {
+        #expect(TranslationSettingsPolicy.effectiveStyle(
+            engine: .offline,
+            storedStyle: .elegant
+        ) == .natural)
+        #expect(TranslationSettingsPolicy.effectiveStyle(
+            engine: .ai,
+            storedStyle: .elegant
+        ) == .elegant)
+    }
+
+    @Test func initialEngineShowsStoredPreferenceOrLegacyEffectiveRoute() {
+        #expect(TranslationSettingsPolicy.initialEngine(
+            preference: .offline,
+            hasAPIKey: true,
+            offlineAvailable: true
+        ) == .offline)
+        #expect(TranslationSettingsPolicy.initialEngine(
+            preference: nil,
+            hasAPIKey: true,
+            offlineAvailable: true
+        ) == .ai)
+        #expect(TranslationSettingsPolicy.initialEngine(
+            preference: nil,
+            hasAPIKey: false,
+            offlineAvailable: true
+        ) == .offline)
+        #expect(TranslationSettingsPolicy.initialEngine(
+            preference: nil,
+            hasAPIKey: false,
+            offlineAvailable: false
+        ) == .ai)
     }
 
     @Test func feedbackMailURLPrefillsRecipientSubjectAndBasicInformation() throws {

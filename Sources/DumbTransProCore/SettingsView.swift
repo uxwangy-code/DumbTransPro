@@ -13,6 +13,7 @@ public struct SettingsView: View {
 
     @State private var selectedSection: SettingsPanelSection? = .aiService
     @State private var offlineAvailability: OfflineAvailability?
+    @State private var selectedEngine: TranslationEngine
     @State private var selectedProvider: AIProvider?
     @State private var apiKey: String = ""
     @State private var baseURLOverride: String = ""
@@ -29,6 +30,11 @@ public struct SettingsView: View {
         self.hotkeyManager = hotkeyManager
         self.offlineTranslator = offlineTranslator
         self.onClose = onClose
+        _selectedEngine = State(initialValue: TranslationSettingsPolicy.initialEngine(
+            preference: store.preferredTranslationEngine,
+            hasAPIKey: store.hasAPIKey,
+            offlineAvailable: offlineTranslator != nil
+        ))
         _selectedProvider = State(initialValue: store.activeProvider)
         _translationStyle = State(initialValue: store.translationStyle)
         if let active = store.activeProvider {
@@ -68,6 +74,25 @@ public struct SettingsView: View {
     /// 当前是否有可用的 AI key（决定土翻/装翻是否可用——离线只做正翻）。
     private var aiAvailable: Bool {
         !apiKey.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var offlineChoiceAvailable: Bool {
+        offlineTranslator != nil && offlineAvailability != .unsupported
+    }
+
+    private var canSaveSettings: Bool {
+        TranslationSettingsPolicy.canSave(
+            engine: selectedEngine,
+            hasProvider: selectedProvider != nil,
+            hasAPIKey: aiAvailable
+        ) && (selectedEngine != .offline || offlineChoiceAvailable)
+    }
+
+    private var effectiveTranslationStyle: TranslationStyle {
+        TranslationSettingsPolicy.effectiveStyle(
+            engine: selectedEngine,
+            storedStyle: translationStyle
+        )
     }
 
     // MARK: - Sections
@@ -162,6 +187,10 @@ public struct SettingsView: View {
 
     private var translationSection: some View {
         VStack(alignment: .leading, spacing: 18) {
+            translationEngineSection
+
+            Divider()
+
             HotkeySection(store: store, hotkeyManager: hotkeyManager)
 
             Divider()
@@ -172,6 +201,86 @@ public struct SettingsView: View {
                 Divider()
                 offlineSection
             }
+        }
+    }
+
+    private var translationEngineSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("翻译方式")
+                .font(.subheadline)
+
+            ForEach(TranslationEngine.allCases) { engine in
+                let isUnavailable = engine == .offline && !offlineChoiceAvailable
+                Button {
+                    selectedEngine = engine
+                } label: {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: selectedEngine == engine ? "largecircle.fill.circle" : "circle")
+                            .font(.system(size: 13))
+                            .foregroundStyle(selectedEngine == engine ? Color.accentColor : Color.secondary)
+                            .frame(width: 16, height: 18)
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack(spacing: 6) {
+                                Text(engineTitle(engine))
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                if isUnavailable {
+                                    Text("需 macOS 15+")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 5)
+                                        .padding(.vertical, 1)
+                                        .background(Color.secondary.opacity(0.15))
+                                        .clipShape(Capsule())
+                                }
+                            }
+                            Text(engineDescription(engine))
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .disabled(isUnavailable)
+                .opacity(isUnavailable ? 0.45 : 1)
+            }
+
+            if selectedEngine == .ai && !aiAvailable {
+                HStack(spacing: 6) {
+                    Text("当前 AI 服务未配置 API Key。")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Button("前往 AI 服务") {
+                        selectedSection = .aiService
+                    }
+                    .font(.caption)
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                }
+            }
+        }
+    }
+
+    private func engineTitle(_ engine: TranslationEngine) -> String {
+        switch engine {
+        case .ai: return "AI 翻译"
+        case .offline: return "离线翻译"
+        }
+    }
+
+    private func engineDescription(_ engine: TranslationEngine) -> String {
+        switch engine {
+        case .ai:
+            guard let provider = selectedProvider else {
+                return "使用已配置的 AI 服务，支持全部翻译风格"
+            }
+            let trimmedModel = model.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmedModel.isEmpty
+                ? "当前服务：\(provider.displayName)"
+                : "当前服务：\(provider.displayName) · \(trimmedModel)"
+        case .offline:
+            return "设备端中英翻译，不联网、不消耗 AI 额度"
         }
     }
 
@@ -341,14 +450,14 @@ public struct SettingsView: View {
                 .font(.subheadline)
             ForEach(TranslationStyle.allCases) { style in
                 let requiresAI = style != .natural
-                let isDisabled = requiresAI && !aiAvailable
+                let isDisabled = requiresAI && (selectedEngine == .offline || !aiAvailable)
                 Button {
                     translationStyle = style
                 } label: {
                     HStack(alignment: .top, spacing: 8) {
-                        Image(systemName: translationStyle == style ? "largecircle.fill.circle" : "circle")
+                        Image(systemName: effectiveTranslationStyle == style ? "largecircle.fill.circle" : "circle")
                             .font(.system(size: 13))
-                            .foregroundStyle(translationStyle == style ? Color.accentColor : Color.secondary)
+                            .foregroundStyle(effectiveTranslationStyle == style ? Color.accentColor : Color.secondary)
                             .frame(width: 16, height: 18)
                         VStack(alignment: .leading, spacing: 2) {
                             HStack(spacing: 6) {
@@ -376,8 +485,12 @@ public struct SettingsView: View {
                 .disabled(isDisabled)
                 .opacity(isDisabled ? 0.45 : 1)
             }
-            if !aiAvailable {
-                Text("未配置 AI key 时仅「正翻」可用（离线设备端翻译）。土翻 / 装翻需要 AI。")
+            if selectedEngine == .offline {
+                Text("离线翻译仅提供「正翻」；切回 AI 后会恢复原来的翻译风格。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else if !aiAvailable {
+                Text("土翻 / 装翻需要先配置 AI 服务。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -570,7 +683,7 @@ public struct SettingsView: View {
                 saveAndClose()
             }
             .buttonStyle(.borderedProminent)
-            .disabled(selectedProvider == nil)
+            .disabled(!canSaveSettings)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 14)
@@ -630,21 +743,24 @@ public struct SettingsView: View {
     }
 
     private func saveAndClose() {
-        guard let provider = selectedProvider else { return }
+        guard canSaveSettings else { return }
 
-        let trimmedBaseURL = baseURLOverride.trimmingCharacters(in: .whitespaces)
-        let resolvedBaseURL = (trimmedBaseURL == provider.defaultBaseURL) ? "" : trimmedBaseURL
+        if let provider = selectedProvider {
+            let trimmedBaseURL = baseURLOverride.trimmingCharacters(in: .whitespaces)
+            let resolvedBaseURL = (trimmedBaseURL == provider.defaultBaseURL) ? "" : trimmedBaseURL
 
-        let trimmedModel = model.trimmingCharacters(in: .whitespaces)
-        let resolvedModel = (trimmedModel == provider.defaultModel) ? "" : trimmedModel
+            let trimmedModel = model.trimmingCharacters(in: .whitespaces)
+            let resolvedModel = (trimmedModel == provider.defaultModel) ? "" : trimmedModel
 
-        let config = ProviderConfig(
-            apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
-            baseURL: resolvedBaseURL,
-            model: resolvedModel
-        )
-        store.updateConfig(provider, config)
-        store.setActiveProvider(provider)
+            let config = ProviderConfig(
+                apiKey: apiKey.trimmingCharacters(in: .whitespacesAndNewlines),
+                baseURL: resolvedBaseURL,
+                model: resolvedModel
+            )
+            store.updateConfig(provider, config)
+            store.setActiveProvider(provider)
+        }
+        store.setPreferredTranslationEngine(selectedEngine)
         store.setTranslationStyle(translationStyle)
         onClose?()
         dismiss()

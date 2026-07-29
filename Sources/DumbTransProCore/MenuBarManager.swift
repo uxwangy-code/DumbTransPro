@@ -189,19 +189,26 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
 
         switch currentMode() {
         case .needsSetup:
-            let warning = NSMenuItem(title: "⚠ 请先设置 API Key", action: nil, keyEquivalent: "")
+            let title = settingsStore.preferredTranslationEngine == .offline
+                ? "⚠ 当前系统不支持离线翻译"
+                : "⚠ 请先设置 API Key"
+            let warning = NSMenuItem(title: title, action: nil, keyEquivalent: "")
             warning.isEnabled = false
             menu.addItem(warning)
             menu.addItem(NSMenuItem.separator())
         case .offline:
-            // 无 key 但离线可用：不报警，引导而非冷拒绝
-            let info = NSMenuItem(title: "离线模式 · 免费可用（配置 AI 解锁土翻/装翻、划词更准）", action: #selector(openSettings), keyEquivalent: "")
+            let info = NSMenuItem(title: "当前：离线翻译 · 设备端", action: #selector(openSettings), keyEquivalent: "")
             info.image = menuSymbol("wifi.slash")
             info.target = self
             menu.addItem(info)
             menu.addItem(NSMenuItem.separator())
         case .ai:
-            break
+            let provider = settingsStore.activeProvider?.displayName ?? "未选择服务"
+            let info = NSMenuItem(title: "当前：AI 翻译 · \(provider)", action: #selector(openSettings), keyEquivalent: "")
+            info.image = menuSymbol("sparkles")
+            info.target = self
+            menu.addItem(info)
+            menu.addItem(NSMenuItem.separator())
         }
 
         if isTranslating {
@@ -334,12 +341,24 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         handleAction(action)
     }
 
-    /// 翻译模式判定：有 key → AI；无 key 但离线引擎就绪（macOS 15+）→ 离线；否则需配置。
+    /// 未保存过新偏好时保留旧版自动路由；保存后严格使用用户选择的引擎。
     private func currentMode() -> TranslationMode {
         TranslationMode.resolve(
+            preference: settingsStore.preferredTranslationEngine,
             hasAPIKey: settingsStore.hasAPIKey,
             offlineAvailable: offlineTranslator != nil
         )
+    }
+
+    private func showTranslationSetupGuidance() {
+        if settingsStore.preferredTranslationEngine == .offline {
+            showNotification(
+                title: "当前系统不支持离线翻译",
+                message: "离线翻译需要 macOS 15+。请在设置中切换到 AI 翻译，或升级 macOS 后重试。"
+            )
+        } else {
+            showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
+        }
     }
 
     private func handleLookup() {
@@ -351,7 +370,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 licenseTier: licenseManager.tier,
                 errorKind: .needsSetup
             ))
-            showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
+            showTranslationSetupGuidance()
             return
         }
         // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。
@@ -506,7 +525,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
                 licenseTier: licenseManager.tier,
                 errorKind: .needsSetup
             ))
-            showNotification(title: "瞎翻 Pro", message: "请先在设置中配置 API Key")
+            showTranslationSetupGuidance()
             return
         }
         // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。

@@ -6,7 +6,7 @@ import Foundation
 public protocol OfflineTranslating: AnyObject {
     /// 中 → 英（「用中文写英文」的离线兜底）。返回纯英文，kebab/分流由路由层处理。
     func rewriteToEnglish(_ text: String) async throws -> String
-    /// 任意源语言 → 简体中文（划词翻译的离线兜底，源语言自动识别）。
+    /// 英 → 简体中文（划词翻译的离线路径）。
     func lookupToChinese(_ text: String) async throws -> String
     /// 当前中↔英语言包状态，供路由层判断「可直接用 / 需下载 / 不支持」。
     func availability() async -> OfflineAvailability
@@ -36,7 +36,7 @@ import SwiftUI
 /// 基于 Apple Translation framework 的设备端离线翻译（macOS 15+）。
 ///
 /// Apple 只通过 SwiftUI 的 `.translationTask` 修饰符交付 `TranslationSession`，
-/// 所以这里挂一个隐藏离屏的 SwiftUI host，常驻两个 session（中→英 改写 / 自动→中
+/// 所以这里挂一个隐藏离屏的 SwiftUI host，常驻两个 session（中→英 改写 / 英→中
 /// 划词）。`TranslationSession.translate` 是 nonisolated 的，所以 session 必须留在
 /// translationTask 闭包（无 actor 隔离域）里使用；跨到主 actor 只传 Sendable 数据
 /// （id / 文本 / 结果字符串），continuation 按 id 存在主 actor 字典、在主 actor 上 resume。
@@ -48,7 +48,7 @@ import SwiftUI
 @MainActor
 public final class AppleTranslationService: OfflineTranslating {
 
-    fileprivate enum Direction { case zhToEn, autoToZh }
+    fileprivate enum Direction { case zhToEn, enToZh }
     fileprivate struct WorkItem: Sendable { let id: UUID; let text: String }
     fileprivate enum Outcome: Sendable { case success(String); case failure(String) }
 
@@ -56,19 +56,19 @@ public final class AppleTranslationService: OfflineTranslating {
     // translationTask 闭包直接消费，无需 await 主 actor。
     fileprivate nonisolated let zhToEnSignal: AsyncStream<Void>
     private nonisolated let zhToEnSignalCont: AsyncStream<Void>.Continuation
-    fileprivate nonisolated let autoToZhSignal: AsyncStream<Void>
-    private nonisolated let autoToZhSignalCont: AsyncStream<Void>.Continuation
+    fileprivate nonisolated let enToZhSignal: AsyncStream<Void>
+    private nonisolated let enToZhSignalCont: AsyncStream<Void>.Continuation
 
     // 主 actor 状态：continuation 按 id 存放，从不穿过 actor 边界。
     private var continuations: [UUID: CheckedContinuation<String, Error>] = [:]
     private var pendingZhToEn: [WorkItem] = []
-    private var pendingAutoToZh: [WorkItem] = []
+    private var pendingEnToZh: [WorkItem] = []
 
     private var window: NSWindow?
 
     public init() {
         (zhToEnSignal, zhToEnSignalCont) = AsyncStream.makeStream(bufferingPolicy: .unbounded)
-        (autoToZhSignal, autoToZhSignalCont) = AsyncStream.makeStream(bufferingPolicy: .unbounded)
+        (enToZhSignal, enToZhSignalCont) = AsyncStream.makeStream(bufferingPolicy: .unbounded)
         mountHiddenHost()
     }
 
@@ -82,14 +82,15 @@ public final class AppleTranslationService: OfflineTranslating {
     }
 
     public func lookupToChinese(_ text: String) async throws -> String {
-        try await enqueue(text, direction: .autoToZh)
+        try await enqueue(text, direction: .enToZh)
     }
 
     public func availability() async -> OfflineAvailability {
+        let pair = OfflineLanguagePair.chineseToEnglish
         let availability = LanguageAvailability()
         let status = await availability.status(
-            from: Locale.Language(identifier: "zh-Hans"),
-            to: Locale.Language(identifier: "en")
+            from: Locale.Language(identifier: pair.sourceIdentifier),
+            to: Locale.Language(identifier: pair.targetIdentifier)
         )
         switch status {
         case .installed: return .ready
@@ -109,9 +110,9 @@ public final class AppleTranslationService: OfflineTranslating {
             case .zhToEn:
                 pendingZhToEn.append(item)
                 zhToEnSignalCont.yield(())
-            case .autoToZh:
-                pendingAutoToZh.append(item)
-                autoToZhSignalCont.yield(())
+            case .enToZh:
+                pendingEnToZh.append(item)
+                enToZhSignalCont.yield(())
             }
         }
     }
@@ -122,9 +123,9 @@ public final class AppleTranslationService: OfflineTranslating {
         case .zhToEn:
             defer { pendingZhToEn.removeAll() }
             return pendingZhToEn
-        case .autoToZh:
-            defer { pendingAutoToZh.removeAll() }
-            return pendingAutoToZh
+        case .enToZh:
+            defer { pendingEnToZh.removeAll() }
+            return pendingEnToZh
         }
     }
 
@@ -163,19 +164,21 @@ private struct OfflineHostView: View {
     unowned let service: AppleTranslationService
 
     @State private var zhToEnConfig: TranslationSession.Configuration?
-    @State private var autoToZhConfig: TranslationSession.Configuration?
+    @State private var enToZhConfig: TranslationSession.Configuration?
 
     var body: some View {
         Color.clear
             .frame(width: 1, height: 1)
             .task {
+                let zhToEn = OfflineLanguagePair.chineseToEnglish
                 zhToEnConfig = TranslationSession.Configuration(
-                    source: Locale.Language(identifier: "zh-Hans"),
-                    target: Locale.Language(identifier: "en")
+                    source: Locale.Language(identifier: zhToEn.sourceIdentifier),
+                    target: Locale.Language(identifier: zhToEn.targetIdentifier)
                 )
-                autoToZhConfig = TranslationSession.Configuration(
-                    source: nil, // 自动识别源语言（划词场景源语言未知）
-                    target: Locale.Language(identifier: "zh-Hans")
+                let enToZh = OfflineLanguagePair.englishToChinese
+                enToZhConfig = TranslationSession.Configuration(
+                    source: Locale.Language(identifier: enToZh.sourceIdentifier),
+                    target: Locale.Language(identifier: enToZh.targetIdentifier)
                 )
             }
             .translationTask(zhToEnConfig) { session in
@@ -191,9 +194,9 @@ private struct OfflineHostView: View {
                     }
                 }
             }
-            .translationTask(autoToZhConfig) { session in
-                for await _ in service.autoToZhSignal {
-                    for item in service.takeWork(.autoToZh) {
+            .translationTask(enToZhConfig) { session in
+                for await _ in service.enToZhSignal {
+                    for item in service.takeWork(.enToZh) {
                         let outcome: AppleTranslationService.Outcome
                         do {
                             outcome = .success(try await session.translate(item.text).targetText)
@@ -221,9 +224,10 @@ struct OfflineLanguageDownloadButton: View {
     var body: some View {
         Button {
             isPreparing = true
+            let pair = OfflineLanguagePair.chineseToEnglish
             config = TranslationSession.Configuration(
-                source: Locale.Language(identifier: "zh-Hans"),
-                target: Locale.Language(identifier: "en")
+                source: Locale.Language(identifier: pair.sourceIdentifier),
+                target: Locale.Language(identifier: pair.targetIdentifier)
             )
         } label: {
             Label(isPreparing ? "下载中…" : "下载离线语言包（中 ⇄ 英）", systemImage: "arrow.down.circle")

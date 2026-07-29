@@ -20,7 +20,7 @@ public enum SettingsPanelSection: String, CaseIterable, Identifiable, Sendable {
     public var summary: String {
         switch self {
         case .aiService: return "服务商、Endpoint、API Key、Model"
-        case .translation: return "快捷键、翻译风格、离线翻译"
+        case .translation: return "翻译方式、快捷键、翻译风格、离线语言包"
         case .pro: return "License 激活与停用"
         case .feedbackAbout: return "邮件反馈、匿名使用数据、版本、官网、GitHub、隐私"
         }
@@ -32,6 +32,48 @@ public enum SettingsPanelSection: String, CaseIterable, Identifiable, Sendable {
         case .translation: return "keyboard"
         case .pro: return "checkmark.seal"
         case .feedbackAbout: return "envelope"
+        }
+    }
+}
+
+enum TranslationSettingsPolicy {
+    static func canSave(
+        engine: TranslationEngine,
+        hasProvider: Bool,
+        hasAPIKey: Bool
+    ) -> Bool {
+        switch engine {
+        case .offline:
+            return true
+        case .ai:
+            return hasProvider && hasAPIKey
+        }
+    }
+
+    static func effectiveStyle(
+        engine: TranslationEngine,
+        storedStyle: TranslationStyle
+    ) -> TranslationStyle {
+        engine == .offline ? .natural : storedStyle
+    }
+
+    static func initialEngine(
+        preference: TranslationEngine?,
+        hasAPIKey: Bool,
+        offlineAvailable: Bool
+    ) -> TranslationEngine {
+        if let preference {
+            return preference
+        }
+        switch TranslationMode.resolve(
+            preference: nil,
+            hasAPIKey: hasAPIKey,
+            offlineAvailable: offlineAvailable
+        ) {
+        case .offline:
+            return .offline
+        case .ai, .needsSetup:
+            return .ai
         }
     }
 }

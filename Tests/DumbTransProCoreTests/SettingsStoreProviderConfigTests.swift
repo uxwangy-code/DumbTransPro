@@ -29,4 +29,17 @@ struct SettingsStoreProviderConfigTests {
         store.updateConfig(.custom, ProviderConfig(baseURL: "https://example.com/openai-compatible/v1"))
         #expect(store.config(for: .custom).baseURL == "https://example.com/openai-compatible/v1")
     }
+
+    @Test func translationEnginePreferenceIsOptionalAndPersists() {
+        let defaults = freshDefaults()
+        let service = freshService()
+        let initial = SettingsStore(defaults: defaults, keychainService: service)
+
+        #expect(initial.preferredTranslationEngine == nil)
+
+        initial.setPreferredTranslationEngine(.offline)
+
+        let reloaded = SettingsStore(defaults: defaults, keychainService: service)
+        #expect(reloaded.preferredTranslationEngine == .offline)
+    }
 }
