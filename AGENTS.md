@@ -27,8 +27,8 @@ If rules conflict, follow: current user instruction > `AGENTS.md` > `CLAUDE.md`
 
 ## Release Flow
 
-- Current production release: `v1.5.3` / build `153`, published on 2026-07-08
-  at <https://github.com/uxwangy-code/DumbTransPro/releases/tag/v1.5.3>.
+- Current production release: `v1.5.4` / build `154`, published on 2026-07-30
+  at <https://github.com/uxwangy-code/DumbTransPro/releases/tag/v1.5.4>.
 - Formal release entrypoint:
 
 ```bash

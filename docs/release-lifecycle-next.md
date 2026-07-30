@@ -1,6 +1,6 @@
 # Release Lifecycle Notes
 
-Last updated: 2026-07-08
+Last updated: 2026-07-30
 
 This note captures release configuration, commercial routing, and operational
 checks so a new machine or chat can continue without replaying the whole
@@ -8,10 +8,10 @@ discussion.
 
 ## Current Production Status
 
-- Latest public release: `v1.5.3` / build `153`, published on 2026-07-08.
-- GitHub Release: <https://github.com/uxwangy-code/DumbTransPro/releases/tag/v1.5.3>
-- Release asset: `DumbTransPro-1.5.3.zip`, size `3827690` bytes.
-- Main release commit: `71dec4a Update appcast for v1.5.3`.
+- Latest public release: `v1.5.4` / build `154`, published on 2026-07-30.
+- GitHub Release: <https://github.com/uxwangy-code/DumbTransPro/releases/tag/v1.5.4>
+- Release asset: `DumbTransPro-1.5.4.zip`, size `3840096` bytes.
+- Main release commit: `773ae94 Update appcast for v1.5.4`.
 - Public appcast: <https://uxwangy-code.github.io/DumbTransPro/appcast.xml>
 - Production telemetry endpoint embedded by default:
   `https://telemetry.whimsycode.com/events`.
@@ -19,12 +19,20 @@ discussion.
 
 ## What The Current Release Line Contains
 
+- Translation Settings now has one explicit AI/offline selector shared by
+  in-place translation and lookup translation.
+- The app remembers the selected engine, allows offline settings to save without
+  an AI provider, and gives clearer guidance for missing API keys or language
+  packs.
+- Offline short-word translation uses explicit Chinese-English language pairs,
+  preventing the system language picker from appearing for words such as
+  `Settings`, `API`, `OpenAI`, and `test`.
 - License UX no longer downgrades a previously verified Pro user to Free just because network verification fails. Explicit invalid/refunded/disabled results still deactivate the key.
 - Settings now shows Pro verification status, including "last verified" and retry guidance when network verification is currently unavailable.
 - Manual "Check for Updates" now gives visible feedback when the current version is already latest, and still opens the Sparkle update window when an update exists.
 - The app starts lightweight background update checks and changes the menu title to "发现新版本 x.x.x..." when a newer version is detected.
 - Release scripts now pass telemetry, purchase URL, and license verification URL through to the built app, then verify the generated app bundle before archiving it.
-- `v1.5.3` embeds the custom telemetry domain so corporate networks that block
+- `v1.5.4` embeds the custom telemetry domain so corporate networks that block
   `workers.dev` can still report anonymous product events when the user has not
   opted out.
 
@@ -40,8 +48,8 @@ DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify
 
 Before creating the release zip, it calls `scripts/check-release-artifact.sh`.
 That check must fail if the built `Info.plist` is missing `DTPUsageTelemetryURL`,
-`DTPLicensePurchaseURL`, or `DTPLicenseVerifyURL`, or if the app version/build
-does not match the requested release.
+`DTPLicensePurchaseURL`, `DTPLicenseVerifyURL`, or the macOS 13 minimum-system
+declaration, or if the app version/build does not match the requested release.
 
 ## Commercial Direction
 
