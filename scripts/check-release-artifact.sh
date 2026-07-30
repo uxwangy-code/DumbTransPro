@@ -9,6 +9,7 @@ PLISTBUDDY="/usr/libexec/PlistBuddy"
 EXPECTED_USAGE_TELEMETRY_URL="${DUMBTRANS_EXPECTED_USAGE_TELEMETRY_URL:-https://telemetry.whimsycode.com/events}"
 EXPECTED_LICENSE_PURCHASE_URL="${DUMBTRANS_EXPECTED_LICENSE_PURCHASE_URL:-https://uxwangy-code.github.io/DumbTransPro/#pricing}"
 EXPECTED_LICENSE_VERIFY_URL="${DUMBTRANS_EXPECTED_LICENSE_VERIFY_URL:-https://license.whimsycode.com/api/licenses/verify}"
+EXPECTED_MINIMUM_SYSTEM_VERSION="${DUMBTRANS_EXPECTED_MINIMUM_SYSTEM_VERSION:-13.0}"
 EXPECTED_VERSION="${DUMBTRANS_EXPECTED_VERSION:-}"
 EXPECTED_BUILD="${DUMBTRANS_EXPECTED_BUILD:-}"
 
@@ -54,6 +55,7 @@ fi
 expect_equals "DTPUsageTelemetryURL" "$EXPECTED_USAGE_TELEMETRY_URL"
 expect_equals "DTPLicensePurchaseURL" "$EXPECTED_LICENSE_PURCHASE_URL"
 expect_equals "DTPLicenseVerifyURL" "$EXPECTED_LICENSE_VERIFY_URL"
+expect_equals "LSMinimumSystemVersion" "$EXPECTED_MINIMUM_SYSTEM_VERSION"
 
 if [[ "$failures" -gt 0 ]]; then
     exit 1

@@ -8,6 +8,7 @@ struct ReleaseArtifactCheckTests {
             "CFBundleVersion": "152",
             "DTPLicensePurchaseURL": "https://uxwangy-code.github.io/DumbTransPro/#pricing",
             "DTPLicenseVerifyURL": "https://license.whimsycode.com/api/licenses/verify",
+            "LSMinimumSystemVersion": "13.0",
         ])
 
         let result = try runCheckScript(appURL: appURL)
@@ -23,11 +24,27 @@ struct ReleaseArtifactCheckTests {
             "DTPUsageTelemetryURL": "https://telemetry.whimsycode.com/events",
             "DTPLicensePurchaseURL": "https://uxwangy-code.github.io/DumbTransPro/#pricing",
             "DTPLicenseVerifyURL": "https://license.whimsycode.com/api/licenses/verify",
+            "LSMinimumSystemVersion": "13.0",
         ])
 
         let result = try runCheckScript(appURL: appURL)
 
         #expect(result.exitCode == 0)
+    }
+
+    @Test func releaseArtifactCheckFailsWhenMinimumSystemVersionIsMissing() throws {
+        let appURL = try makeAppBundle(info: [
+            "CFBundleShortVersionString": "1.5.2",
+            "CFBundleVersion": "152",
+            "DTPUsageTelemetryURL": "https://telemetry.whimsycode.com/events",
+            "DTPLicensePurchaseURL": "https://uxwangy-code.github.io/DumbTransPro/#pricing",
+            "DTPLicenseVerifyURL": "https://license.whimsycode.com/api/licenses/verify",
+        ])
+
+        let result = try runCheckScript(appURL: appURL)
+
+        #expect(result.exitCode != 0)
+        #expect(result.output.contains("LSMinimumSystemVersion"))
     }
 
     private func runCheckScript(appURL: URL) throws -> CommandResult {
