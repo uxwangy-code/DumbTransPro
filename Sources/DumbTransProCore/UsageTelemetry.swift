@@ -1,13 +1,13 @@
 import Foundation
-import OSLog
-
-private let usageTelemetryLogger = Logger(
-    subsystem: "com.whimsycode.dumbtrans-pro",
-    category: "UsageTelemetry"
-)
+import Combine
+import Network
 
 public enum UsageTelemetryEventName: String, Codable, Sendable, Equatable {
     case appLaunched = "app_launched"
+    case telemetryEnabled = "telemetry_enabled"
+    case translationStarted = "translation_started"
+    case translationCancelled = "translation_cancelled"
+    case telemetryHealth = "telemetry_health"
     case translationSucceeded = "translation_succeeded"
     case translationFailed = "translation_failed"
     case translationBlocked = "translation_blocked"
@@ -85,6 +85,10 @@ public enum UsageTelemetryErrorKind: String, Codable, Sendable, Equatable {
     case apiError = "api_error"
     case network
     case invalidResponse = "invalid_response"
+    case accessibilityDenied = "accessibility_denied"
+    case clipboardBusy = "clipboard_busy"
+    case invalidOutput = "invalid_output"
+    case truncatedOutput = "truncated_output"
     case unknown
 
     public init(error: Error) {
@@ -99,6 +103,10 @@ public enum UsageTelemetryErrorKind: String, Codable, Sendable, Equatable {
             self = .network
         case TranslateError.invalidResponse:
             self = .invalidResponse
+        case TranslateError.invalidOutput:
+            self = .invalidOutput
+        case TranslateError.truncatedOutput:
+            self = .truncatedOutput
         case TranslateError.noAPIKey:
             self = .needsSetup
         default:
@@ -107,37 +115,36 @@ public enum UsageTelemetryErrorKind: String, Codable, Sendable, Equatable {
     }
 }
 
+public enum TelemetryBuildChannel: String, Codable, Sendable {
+    case production, development
+    public static var current: Self {
+        #if DEBUG
+        .development
+        #else
+        .production
+        #endif
+    }
+}
+
 public struct UsageTelemetryContext: Codable, Sendable, Equatable {
     public let appVersion: String
     public let macOSVersion: String
+    public let buildChannel: TelemetryBuildChannel
 
-    public init(appVersion: String, macOSVersion: String) {
+    public init(appVersion: String, macOSVersion: String, buildChannel: TelemetryBuildChannel = .development) {
         self.appVersion = appVersion
         self.macOSVersion = macOSVersion
+        self.buildChannel = buildChannel
     }
 
-    public static func current(bundle: Bundle = .main, processInfo: ProcessInfo = .processInfo) -> UsageTelemetryContext {
-        UsageTelemetryContext(
-            appVersion: appVersion(in: bundle),
-            macOSVersion: macOSVersion(from: processInfo)
-        )
-    }
-
-    private static func appVersion(in bundle: Bundle) -> String {
-        let shortVersion = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+    public static func current(bundle: Bundle = .main, processInfo: ProcessInfo = .processInfo) -> Self {
+        let short = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         let build = bundle.object(forInfoDictionaryKey: "CFBundleVersion") as? String
-        switch (shortVersion?.isEmpty == false ? shortVersion : nil, build?.isEmpty == false ? build : nil) {
-        case let (short?, build?): return "\(short) (\(build))"
-        case let (short?, nil): return short
-        case let (nil, build?): return build
-        case (nil, nil): return "Unknown"
-        }
-    }
-
-    private static func macOSVersion(from processInfo: ProcessInfo) -> String {
-        let version = processInfo.operatingSystemVersion
-        let patch = version.patchVersion > 0 ? ".\(version.patchVersion)" : ""
-        return "macOS \(version.majorVersion).\(version.minorVersion)\(patch)"
+        let version = [short, build.map { "(\($0))" }].compactMap { $0 }.joined(separator: " ")
+        let os = processInfo.operatingSystemVersion
+        let channel = TelemetryBuildChannel.current
+        return Self(appVersion: version.isEmpty ? "Unknown" : version,
+                    macOSVersion: "macOS \(os.majorVersion).\(os.minorVersion).\(os.patchVersion)", buildChannel: channel)
     }
 }
 
@@ -150,267 +157,359 @@ public struct UsageTelemetryEvent: Codable, Sendable, Equatable {
     public let style: String?
     public let licenseTier: LicenseTier?
     public let errorKind: UsageTelemetryErrorKind?
+    public let requestId: String?
+    public let requestStartedAt: String?
+    public let durationBucket: TelemetryDurationBucket?
+    public let failureStage: TelemetryFailureStage?
+    public let delivery: TelemetryDelivery?
+    public let diagnosticEpoch: String?
+    public let droppedOverflow: Int?
+    public let droppedExpired: Int?
+    public let droppedCorrupt: Int?
+    public let rejectedPermanent: Int?
 
-    public init(
-        name: UsageTelemetryEventName,
-        action: UsageTelemetryAction? = nil,
-        route: UsageTelemetryRoute? = nil,
-        provider: UsageTelemetryProvider? = nil,
-        direction: UsageTelemetryDirection? = nil,
-        style: TranslationStyle? = nil,
-        licenseTier: LicenseTier? = nil,
-        errorKind: UsageTelemetryErrorKind? = nil
-    ) {
-        self.name = name
-        self.action = action
-        self.route = route
-        self.provider = provider
-        self.direction = direction
-        self.style = style?.rawValue
-        self.licenseTier = licenseTier
-        self.errorKind = errorKind
+    public init(name: UsageTelemetryEventName, action: UsageTelemetryAction? = nil,
+                route: UsageTelemetryRoute? = nil, provider: UsageTelemetryProvider? = nil,
+                direction: UsageTelemetryDirection? = nil, style: TranslationStyle? = nil,
+                licenseTier: LicenseTier? = nil, errorKind: UsageTelemetryErrorKind? = nil,
+                requestId: String? = nil, requestStartedAt: String? = nil,
+                durationBucket: TelemetryDurationBucket? = nil, failureStage: TelemetryFailureStage? = nil,
+                delivery: TelemetryDelivery? = nil, diagnostics: TelemetryDiagnostics? = nil) {
+        self.name = name; self.action = action; self.route = route; self.provider = provider
+        self.direction = direction; self.style = style?.rawValue; self.licenseTier = licenseTier
+        self.errorKind = errorKind; self.requestId = requestId; self.requestStartedAt = requestStartedAt
+        self.durationBucket = durationBucket; self.failureStage = failureStage; self.delivery = delivery
+        diagnosticEpoch = diagnostics?.diagnosticEpoch; droppedOverflow = diagnostics?.droppedOverflow
+        droppedExpired = diagnostics?.droppedExpired; droppedCorrupt = diagnostics?.droppedCorrupt
+        rejectedPermanent = diagnostics?.rejectedPermanent
     }
 
-    public static func appLaunched(licenseTier: LicenseTier) -> UsageTelemetryEvent {
-        UsageTelemetryEvent(name: .appLaunched, licenseTier: licenseTier)
+    var isValid: Bool {
+        let hasDiagnostics = diagnosticEpoch != nil || droppedOverflow != nil || droppedExpired != nil
+            || droppedCorrupt != nil || rejectedPermanent != nil
+        if name == .telemetryHealth {
+            return diagnosticEpoch.flatMap(UUID.init(uuidString:)) != nil
+                && [droppedOverflow, droppedExpired, droppedCorrupt, rejectedPermanent].allSatisfy { ($0 ?? -1) >= 0 }
+                && action == nil && route == nil && provider == nil && direction == nil && style == nil
+                && licenseTier == nil && requestId == nil && requestStartedAt == nil && durationBucket == nil
+                && errorKind == nil && failureStage == nil && delivery == nil
+        }
+        guard !hasDiagnostics else { return false }
+        if name == .appLaunched || name == .telemetryEnabled {
+            return action == nil && route == nil && provider == nil && direction == nil && style == nil
+                && requestId == nil && requestStartedAt == nil && durationBucket == nil
+                && errorKind == nil && failureStage == nil && delivery == nil
+        }
+        guard action != nil, licenseTier != nil, requestId.flatMap(UUID.init(uuidString:)) != nil,
+              requestStartedAt != nil else { return false }
+        if name == .translationStarted {
+            return durationBucket == nil && errorKind == nil && failureStage == nil && delivery == nil
+        }
+        guard durationBucket != nil else { return false }
+        switch name {
+        case .translationSucceeded: return route != nil && errorKind == nil && failureStage == nil
+        case .translationFailed: return errorKind != nil && failureStage != nil && delivery == nil
+        case .translationBlocked: return errorKind != nil && failureStage == nil && delivery == nil
+        case .translationCancelled: return errorKind == nil && failureStage == nil && delivery == nil
+        default: return false
+        }
     }
 
-    public static func translationSucceeded(
-        action: UsageTelemetryAction,
-        route: UsageTelemetryRoute,
-        provider: UsageTelemetryProvider?,
-        direction: UsageTelemetryDirection?,
-        style: TranslationStyle,
-        licenseTier: LicenseTier
-    ) -> UsageTelemetryEvent {
-        UsageTelemetryEvent(
-            name: .translationSucceeded,
-            action: action,
-            route: route,
-            provider: provider,
-            direction: direction,
-            style: style,
-            licenseTier: licenseTier
-        )
-    }
+    public static func appLaunched(licenseTier: LicenseTier) -> Self { Self(name: .appLaunched, licenseTier: licenseTier) }
 
-    public static func translationFailed(
-        action: UsageTelemetryAction,
-        route: UsageTelemetryRoute,
-        provider: UsageTelemetryProvider?,
-        direction: UsageTelemetryDirection?,
-        style: TranslationStyle?,
-        licenseTier: LicenseTier,
-        errorKind: UsageTelemetryErrorKind
-    ) -> UsageTelemetryEvent {
-        UsageTelemetryEvent(
-            name: .translationFailed,
-            action: action,
-            route: route,
-            provider: provider,
-            direction: direction,
-            style: style,
-            licenseTier: licenseTier,
-            errorKind: errorKind
-        )
+    // Source compatibility while call sites migrate. Incomplete legacy request events are rejected by v3 validation.
+    public static func translationSucceeded(action: UsageTelemetryAction, route: UsageTelemetryRoute,
+        provider: UsageTelemetryProvider?, direction: UsageTelemetryDirection?, style: TranslationStyle, licenseTier: LicenseTier) -> Self {
+        Self(name: .translationSucceeded, action: action, route: route, provider: provider, direction: direction, style: style, licenseTier: licenseTier)
     }
-
-    public static func translationBlocked(
-        action: UsageTelemetryAction,
-        provider: UsageTelemetryProvider?,
-        licenseTier: LicenseTier,
-        errorKind: UsageTelemetryErrorKind
-    ) -> UsageTelemetryEvent {
-        UsageTelemetryEvent(
-            name: .translationBlocked,
-            action: action,
-            provider: provider,
-            licenseTier: licenseTier,
-            errorKind: errorKind
-        )
+    public static func translationFailed(action: UsageTelemetryAction, route: UsageTelemetryRoute,
+        provider: UsageTelemetryProvider?, direction: UsageTelemetryDirection?, style: TranslationStyle?, licenseTier: LicenseTier,
+        errorKind: UsageTelemetryErrorKind) -> Self {
+        Self(name: .translationFailed, action: action, route: route, provider: provider, direction: direction, style: style, licenseTier: licenseTier, errorKind: errorKind)
+    }
+    public static func translationBlocked(action: UsageTelemetryAction, provider: UsageTelemetryProvider?,
+        licenseTier: LicenseTier, errorKind: UsageTelemetryErrorKind) -> Self {
+        Self(name: .translationBlocked, action: action, provider: provider, licenseTier: licenseTier, errorKind: errorKind)
     }
 }
 
-private struct UsageTelemetryPayload: Codable, Sendable {
-    let schemaVersion: Int
-    let sentAt: String
-    let context: UsageTelemetryContext
-    let event: UsageTelemetryEvent
+public struct UsageTelemetryPayload: Codable, Sendable, Equatable {
+    public let schemaVersion: Int
+    public let eventId: String
+    public let installationId: String
+    public let occurredAt: String
+    public let policyVersion: String
+    public let collectionMode: String
+    public let context: UsageTelemetryContext
+    public let event: UsageTelemetryEvent
 }
 
-public final class UsageTelemetryClient: @unchecked Sendable {
-    private static let requestTimeout: TimeInterval = 15
-    private static let maxAttempts = 2
+/// Owns consent, request lifecycle, persisted queue, and the sole sender on one executor.
+@MainActor
+public final class UsageTelemetryClient: ObservableObject {
+    @Published public private(set) var consentState: TelemetryConsentState
+    @Published public private(set) var installationID: String?
+    public var needsConsentDecision: Bool { consentState == .undecided }
 
     private let endpoint: URL?
     private let session: URLSession
     private let context: UsageTelemetryContext
+    private let consentStore: TelemetryConsentStore
+    private let identityStore: any TelemetryIdentityStoring
+    private let queue: TelemetryEventQueue
     private let now: @Sendable () -> Date
+    private let uptime: @Sendable () -> TimeInterval
     private let retryDelayNanoseconds: UInt64
+    private let retrySleep: @Sendable (UInt64) async throws -> Void
+    private var networkRecoveryGeneration: UInt64 = 0
+    private var generation: UInt64 = 0
+    private var activeRequests: Set<String> = []
+    private var sender: Task<Void, Never>?
+    private var retryWait: (id: UUID, task: Task<Void, Never>, canWakeForNetwork: Bool)?
+    private var monitor: NWPathMonitor?
+    private var lastHealthSnapshot: TelemetryDiagnostics?
 
-    public init(
-        endpoint: URL? = UsageTelemetryClient.endpointURL(),
-        session: URLSession = .shared,
-        context: UsageTelemetryContext = .current(),
-        now: @escaping @Sendable () -> Date = { Date() }
-    ) {
-        self.endpoint = endpoint
-        self.session = session
-        self.context = context
-        self.now = now
-        self.retryDelayNanoseconds = 750_000_000
-    }
-
-    init(
-        endpoint: URL?,
-        session: URLSession,
-        context: UsageTelemetryContext,
-        now: @escaping @Sendable () -> Date,
-        retryDelayNanoseconds: UInt64
-    ) {
-        self.endpoint = endpoint
-        self.session = session
-        self.context = context
-        self.now = now
+    public init(endpoint: URL? = UsageTelemetryClient.endpointURL(), session: URLSession = .shared,
+                context: UsageTelemetryContext = .current(), consentStore: TelemetryConsentStore? = nil,
+                identityStore: (any TelemetryIdentityStoring)? = nil,
+                queue: TelemetryEventQueue? = nil,
+                now: @escaping @Sendable () -> Date = { Date() },
+                uptime: @escaping @Sendable () -> TimeInterval = { ProcessInfo.processInfo.systemUptime },
+                retryDelayNanoseconds: UInt64 = 1_000_000_000, observeNetworkChanges: Bool = true,
+                retrySleep: @escaping @Sendable (UInt64) async throws -> Void = { try await Task.sleep(nanoseconds: $0) }) {
+        let directory = TelemetryStorage.directory(for: context.buildChannel)
+        let consentStore = consentStore ?? TelemetryConsentStore(buildChannel: context.buildChannel)
+        let identityStore = identityStore ?? FileTelemetryIdentityStore(storageURL: directory.appendingPathComponent("identity.json"))
+        let queue = queue ?? TelemetryEventQueue(storageURL: directory.appendingPathComponent("queue.json"))
+        self.endpoint = endpoint.flatMap { Self.endpointAllowed($0, for: context.buildChannel) ? $0 : nil }
+        self.session = session; self.context = context; self.consentStore = consentStore
+        self.identityStore = identityStore; self.queue = queue; self.now = now; self.uptime = uptime
         self.retryDelayNanoseconds = retryDelayNanoseconds
+        self.retrySleep = retrySleep
+        consentState = consentStore.state
+        installationID = try? identityStore.existingID()
+        if consentState == .enabled {
+            installationID = try? identityStore.getOrCreateID()
+            queue.prune(now: now())
+            startSending()
+        } else {
+            queue.clear()
+        }
+        if self.endpoint != nil && observeNetworkChanges {
+            let monitor = NWPathMonitor()
+            monitor.pathUpdateHandler = { [weak self] path in
+                guard path.status == .satisfied else { return }
+                Task { @MainActor [weak self] in self?.networkDidBecomeAvailable() }
+            }
+            self.monitor = monitor
+            monitor.start(queue: DispatchQueue(label: "com.whimsycode.dumbtrans-pro.telemetry-network"))
+        }
     }
 
-    public static func endpointURL(bundle: Bundle = .main) -> URL? {
-        guard let raw = bundle.object(forInfoDictionaryKey: "DTPUsageTelemetryURL") as? String else {
-            return nil
-        }
+    deinit { monitor?.cancel(); sender?.cancel(); retryWait?.task.cancel() }
+
+    public nonisolated static func endpointURL(bundle: Bundle = .main) -> URL? {
+        guard let raw = bundle.object(forInfoDictionaryKey: "DTPUsageTelemetryURL") as? String else { return nil }
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return URL(string: trimmed)
+        guard !trimmed.isEmpty, let url = URL(string: trimmed),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return nil }
+        return url
+    }
+
+    public func setConsent(_ allowed: Bool) {
+        let changed = consentState != (allowed ? .enabled : .disabled)
+        if !allowed {
+            generation &+= 1
+            sender?.cancel(); sender = nil
+            retryWait?.task.cancel(); retryWait = nil
+            activeRequests.removeAll()
+            queue.clear()
+            lastHealthSnapshot = nil
+        }
+        consentStore.setAllowed(allowed)
+        consentState = allowed ? .enabled : .disabled
+        guard allowed else { return }
+        installationID = try? identityStore.getOrCreateID()
+        if changed { enqueue(UsageTelemetryEvent(name: .telemetryEnabled)) }
+        startSending()
+    }
+
+    /// Call only after presenting the old ID's deletion route to the user.
+    @discardableResult public func resetInstallationID() -> String? {
+        guard consentState == .enabled else { return nil }
+        generation &+= 1
+        sender?.cancel(); sender = nil
+        retryWait?.task.cancel(); retryWait = nil
+        activeRequests.removeAll(); queue.clear()
+        installationID = try? identityStore.resetID()
+        queue.resetDiagnostics()
+        lastHealthSnapshot = nil
+        enqueue(UsageTelemetryEvent(name: .telemetryEnabled))
+        return installationID
+    }
+
+    public func recordAppLaunched(licenseTier: LicenseTier) { enqueue(.appLaunched(licenseTier: licenseTier)) }
+
+    public func beginTranslation(action: UsageTelemetryAction, licenseTier: LicenseTier) -> TelemetryTranslationRequest? {
+        guard consentState == .enabled, installationID != nil else { return nil }
+        let request = TelemetryTranslationRequest(requestId: UUID().uuidString.lowercased(),
+            requestStartedAt: telemetryTimestamp(now()), generation: generation, startedUptime: uptime(), action: action, licenseTier: licenseTier)
+        activeRequests.insert(request.requestId)
+        enqueue(UsageTelemetryEvent(name: .translationStarted, action: action, licenseTier: licenseTier,
+                                    requestId: request.requestId, requestStartedAt: request.requestStartedAt))
+        return request
+    }
+
+    public func finishTranslation(_ request: TelemetryTranslationRequest?, outcome: UsageTelemetryOutcome,
+        route: UsageTelemetryRoute? = nil, provider: UsageTelemetryProvider? = nil,
+        direction: UsageTelemetryDirection? = nil, style: TranslationStyle? = nil,
+        errorKind: UsageTelemetryErrorKind? = nil, failureStage: TelemetryFailureStage? = nil,
+        delivery: TelemetryDelivery? = nil) {
+        guard consentState == .enabled, let request, request.generation == generation,
+              activeRequests.contains(request.requestId) else { return }
+        let name: UsageTelemetryEventName
+        switch outcome {
+        case .succeeded: name = .translationSucceeded
+        case .failed: name = .translationFailed
+        case .blocked: name = .translationBlocked
+        case .cancelled: name = .translationCancelled
+        }
+        let event = UsageTelemetryEvent(name: name, action: request.action, route: route, provider: provider,
+            direction: direction, style: style, licenseTier: request.licenseTier, errorKind: errorKind,
+            requestId: request.requestId, requestStartedAt: request.requestStartedAt,
+            durationBucket: TelemetryDurationBucket(elapsed: uptime() - request.startedUptime), failureStage: failureStage, delivery: delivery)
+        guard event.isValid else { return }
+        activeRequests.remove(request.requestId)
+        enqueue(event)
     }
 
     public func record(_ event: UsageTelemetryEvent, isEnabled: Bool) {
-        Task.detached(priority: .utility) { [self] in
-            await send(event, isEnabled: isEnabled)
+        guard isEnabled else { return }
+        enqueue(event)
+    }
+
+    public func networkDidBecomeAvailable() {
+        guard consentState == .enabled else { return }
+        networkRecoveryGeneration &+= 1
+        queue.prune(now: now())
+        // Keep the one sender and any in-flight HTTP request. Only its local
+        // offline backoff is interruptible; an explicit Retry-After is honored.
+        if retryWait?.canWakeForNetwork == true { retryWait?.task.cancel() }
+        startSending()
+    }
+
+    /// Drain queued events; consent changes cancel this wait and its underlying network request.
+    public func flush() async { startSending(); await sender?.value }
+
+    private func enqueue(_ event: UsageTelemetryEvent) {
+        guard consentState == .enabled, let installationID, event.isValid else { return }
+        let payload = UsageTelemetryPayload(schemaVersion: 3, eventId: UUID().uuidString.lowercased(),
+            installationId: installationID, occurredAt: telemetryTimestamp(now()), policyVersion: TelemetryConsentStore.policyVersion,
+            collectionMode: "explicit_opt_in", context: context, event: event)
+        queue.append(payload, now: now())
+        startSending()
+    }
+
+    private func addHealthSnapshotIfNeeded() {
+        guard consentState == .enabled, queue.diagnostics.hasDrops, queue.diagnostics != lastHealthSnapshot else { return }
+        lastHealthSnapshot = queue.diagnostics
+        enqueue(UsageTelemetryEvent(name: .telemetryHealth, diagnostics: queue.diagnostics))
+    }
+
+    private func startSending() {
+        guard consentState == .enabled, installationID != nil, endpoint != nil, sender == nil else { return }
+        let token = generation
+        sender = Task { [weak self] in
+            guard let self else { return }
+            await self.drain(generation: token)
+            if self.generation == token { self.sender = nil }
         }
     }
 
-    public func send(_ event: UsageTelemetryEvent, isEnabled: Bool) async {
-        guard isEnabled else {
-            writeLocalDebug("skipped event=\(event.name.rawValue) reason=disabled")
-            usageTelemetryLogger.debug("Skipped usage event: \(event.name.rawValue, privacy: .public), disabled")
-            return
-        }
-        guard let endpoint else {
-            usageTelemetryLogger.debug("Skipped usage event: \(event.name.rawValue, privacy: .public), no endpoint")
-            return
-        }
-        writeLocalDebug("sending event=\(event.name.rawValue)")
-
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        let payload = UsageTelemetryPayload(
-            schemaVersion: 1,
-            sentAt: formatter.string(from: now()),
-            context: context,
-            event: event
-        )
-
-        do {
-            let body = try JSONEncoder().encode(payload)
-            await sendWithRetry(event: event, endpoint: endpoint, body: body)
-        } catch {
-            // Usage telemetry is best-effort and must never affect translation.
-            let nsError = error as NSError
-            writeLocalDebug("failed event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code)")
-            usageTelemetryLogger.error("Usage event failed: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public)")
-        }
-    }
-
-    private func sendWithRetry(event: UsageTelemetryEvent, endpoint: URL, body: Data) async {
-        for attempt in 1...Self.maxAttempts {
+    private func drain(generation token: UInt64) async {
+        guard let endpoint, consentState == .enabled, generation == token, !Task.isCancelled else { return }
+        addHealthSnapshotIfNeeded()
+        var attempts = 0
+        while consentState == .enabled, generation == token, !Task.isCancelled {
+            queue.prune(now: now())
+            guard let entry = queue.entries.first else { return }
+            // Never replay another build channel's persisted history, including
+            // deliberately injected or old shared queues. Do not relabel it.
+            guard entry.payload.context.buildChannel == context.buildChannel,
+                  Self.endpointAllowed(endpoint, for: entry.payload.context.buildChannel) else {
+                queue.remove(eventId: entry.payload.eventId)
+                continue
+            }
+            var request = URLRequest(url: endpoint, timeoutInterval: 15)
+            request.httpMethod = "POST"
+            request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.httpBody = entry.body
+            var retryAfter: TimeInterval?
+            let recoveryAtRequestStart = networkRecoveryGeneration
             do {
-                let statusCode = try await sendOnce(endpoint: endpoint, body: body)
-                if (200..<300).contains(statusCode) {
-                    writeLocalDebug("sent event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
-                    usageTelemetryLogger.info("Sent usage event: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
-                    return
-                }
-
-                let shouldRetry = Self.shouldRetry(statusCode: statusCode) && attempt < Self.maxAttempts
-                if shouldRetry {
-                    writeLocalDebug("retrying event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
-                    usageTelemetryLogger.debug("Retrying usage event: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
-                    await waitBeforeRetry()
+                let (_, response) = try await session.data(for: request)
+                guard consentState == .enabled, generation == token, !Task.isCancelled else { return }
+                let http = response as? HTTPURLResponse
+                let status = http?.statusCode ?? 0
+                if status == 200 || status == 202 {
+                    queue.remove(eventId: entry.payload.eventId)
+                    attempts = 0
+                    addHealthSnapshotIfNeeded()
                     continue
                 }
-
-                writeLocalDebug("rejected event=\(event.name.rawValue) status=\(statusCode) attempt=\(attempt)")
-                usageTelemetryLogger.error("Usage event rejected: \(event.name.rawValue, privacy: .public), status: \(statusCode, privacy: .public), attempt: \(attempt, privacy: .public)")
-                return
+                if !Self.shouldRetry(statusCode: status) {
+                    queue.remove(eventId: entry.payload.eventId)
+                    if entry.payload.event.name != .telemetryHealth {
+                        queue.recordPermanentRejection()
+                        addHealthSnapshotIfNeeded()
+                    }
+                    attempts = 0
+                    continue
+                }
+                retryAfter = Self.retryAfter(http?.value(forHTTPHeaderField: "Retry-After"), now: now())
             } catch {
-                let nsError = error as NSError
-                let shouldRetry = attempt < Self.maxAttempts
-                if shouldRetry {
-                    writeLocalDebug("retrying event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code) attempt=\(attempt)")
-                    usageTelemetryLogger.debug("Retrying usage event: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public), attempt: \(attempt, privacy: .public)")
-                    await waitBeforeRetry()
-                    continue
-                }
-
-                writeLocalDebug("failed event=\(event.name.rawValue) domain=\(nsError.domain) code=\(nsError.code) attempt=\(attempt)")
-                usageTelemetryLogger.error("Usage event failed: \(event.name.rawValue, privacy: .public), domain: \(nsError.domain, privacy: .public), code: \(nsError.code, privacy: .public), attempt: \(attempt, privacy: .public)")
-                return
+                guard consentState == .enabled, generation == token, !Task.isCancelled else { return }
             }
-        }
-    }
-
-    private func sendOnce(endpoint: URL, body: Data) async throws -> Int {
-        var request = URLRequest(url: endpoint, timeoutInterval: Self.requestTimeout)
-        request.httpMethod = "POST"
-        request.cachePolicy = .reloadIgnoringLocalAndRemoteCacheData
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        request.httpBody = body
-
-        let (_, response) = try await session.data(for: request)
-        return (response as? HTTPURLResponse)?.statusCode ?? 0
-    }
-
-    private static func shouldRetry(statusCode: Int) -> Bool {
-        statusCode == 408 || statusCode == 429 || (500..<600).contains(statusCode)
-    }
-
-    private func waitBeforeRetry() async {
-        guard retryDelayNanoseconds > 0 else { return }
-        try? await Task.sleep(nanoseconds: retryDelayNanoseconds)
-    }
-
-    private func writeLocalDebug(_ message: String) {
-        guard let endpoint, Self.isLocalEndpoint(endpoint) else { return }
-        guard let libraryURL = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first else {
-            return
-        }
-        let directory = libraryURL.appendingPathComponent("Logs/DumbTransPro", isDirectory: true)
-        let fileURL = directory.appendingPathComponent("usage-telemetry.log")
-        let formatter = ISO8601DateFormatter()
-        formatter.formatOptions = [.withInternetDateTime]
-        let line = "\(formatter.string(from: now())) \(message)\n"
-
-        do {
-            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-            if FileManager.default.fileExists(atPath: fileURL.path) {
-                let handle = try FileHandle(forWritingTo: fileURL)
-                defer { try? handle.close() }
-                try handle.seekToEnd()
-                if let data = line.data(using: .utf8) {
-                    try handle.write(contentsOf: data)
-                }
-            } else {
-                try line.write(to: fileURL, atomically: true, encoding: .utf8)
+            attempts += 1
+            // A recovered path may be reported before this older HTTP attempt
+            // finishes failing. Remember that notification instead of entering
+            // a fresh offline sleep after recovery. Server Retry-After wins.
+            if retryAfter == nil && networkRecoveryGeneration != recoveryAtRequestStart { continue }
+            let base = Double(retryDelayNanoseconds) / 1_000_000_000
+            let delay = retryAfter ?? min(3600, base * pow(2, Double(min(attempts - 1, 12)))) * Double.random(in: 0.8...1.2)
+            let waitID = UUID()
+            let sleep = retrySleep
+            let waitTask = Task<Void, Never> {
+                do { try await sleep(UInt64(min(3600, max(0, delay)) * 1_000_000_000)) }
+                catch { /* Network recovery or consent change wakes the sender. */ }
             }
-        } catch {
-            // Local verification diagnostics are best-effort.
+            retryWait = (waitID, waitTask, retryAfter == nil)
+            await waitTask.value
+            // An old consent generation may finish cancellation after a new
+            // generation has already begun waiting; do not clear its handle.
+            if retryWait?.id == waitID { retryWait = nil }
         }
     }
 
-    private static func isLocalEndpoint(_ url: URL) -> Bool {
-        guard let host = url.host?.lowercased() else { return false }
-        return host == "127.0.0.1" || host == "localhost"
+    private nonisolated static func endpointAllowed(_ endpoint: URL, for channel: TelemetryBuildChannel) -> Bool {
+        guard channel == .development else { return true }
+        return ["localhost", "127.0.0.1", "::1", "[::1]", "telemetry-staging.whimsycode.com"]
+            .contains(endpoint.host?.lowercased() ?? "")
+    }
+
+    static func shouldRetry(statusCode: Int) -> Bool {
+        statusCode == 0 || statusCode == 408 || statusCode == 429 || (500..<600).contains(statusCode)
+    }
+
+    static func retryAfter(_ value: String?, now: Date) -> TimeInterval? {
+        guard let value else { return nil }
+        if let seconds = Double(value), seconds.isFinite { return min(3600, max(0, seconds)) }
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "EEE, dd MMM yyyy HH:mm:ss z"
+        return formatter.date(from: value).map { min(3600, max(0, $0.timeIntervalSince(now))) }
     }
 }

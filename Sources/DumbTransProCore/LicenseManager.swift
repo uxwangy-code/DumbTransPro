@@ -1,4 +1,10 @@
 import Foundation
+import CoreFoundation
+
+private func licenseBoolean(_ value: Any?) -> Bool? {
+    guard let number = value as? NSNumber, CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
+    return number.boolValue
+}
 
 public enum LicenseTier: String, Codable, Sendable, Equatable {
     case free
@@ -16,12 +22,16 @@ public enum LicenseError: Error, LocalizedError, Equatable {
     case emptyKey
     case invalidKey(String)
     case network(String)
+    case storage
+    case superseded
 
     public var errorDescription: String? {
         switch self {
         case .emptyKey: return "请输入 License Key"
         case .invalidKey(let reason): return "License 无效：\(reason)"
         case .network(let reason): return "暂时无法验证 License（\(reason)），请检查网络后重试；如果当前网络访问海外服务不稳定，可尝试挂🪜后重试"
+        case .storage: return "License 已验证，但无法保存到钥匙串。请解锁钥匙串后重试。"
+        case .superseded: return "授权操作已取消或被新的操作替代"
         }
     }
 }
@@ -161,7 +171,9 @@ public struct LicenseGatewayVerifier: LicenseVerifying {
             throw LicenseError.network("HTTP \(http.statusCode)")
         }
 
-        let success = json["valid"] as? Bool ?? json["is_valid"] as? Bool ?? false
+        guard let success = licenseBoolean(json["valid"] ?? json["is_valid"]) else {
+            throw LicenseError.network("无效响应")
+        }
         guard success else {
             return LicenseVerification(isValid: false, failureReason: failureReason(in: json) ?? "key 不存在或已停用")
         }
@@ -224,16 +236,24 @@ public struct GumroadLicenseVerifier: LicenseVerifying {
         guard let http = response as? HTTPURLResponse else {
             throw LicenseError.network("无效响应")
         }
-        // Gumroad 对无效 key 返回 404 + JSON 体；非 JSON 一律视作服务异常
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        // Only documented success/invalid-key statuses can change entitlement.
+        guard http.statusCode == 200 || http.statusCode == 404,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let success = licenseBoolean(json["success"]) else {
             throw LicenseError.network("HTTP \(http.statusCode)")
         }
 
-        guard json["success"] as? Bool == true else {
+        guard success else {
             let message = (json["message"] as? String) ?? "key 不存在或与商品不匹配"
             return LicenseVerification(isValid: false, failureReason: message)
         }
-        if let purchase = json["purchase"] as? [String: Any] {
+        guard http.statusCode == 200,
+              let purchase = json["purchase"] as? [String: Any],
+              licenseBoolean(purchase["refunded"]) != nil,
+              licenseBoolean(purchase["chargebacked"]) != nil else {
+            throw LicenseError.network("无效响应")
+        }
+        do {
             if purchase["refunded"] as? Bool == true {
                 return LicenseVerification(isValid: false, failureReason: "订单已退款")
             }
@@ -243,6 +263,21 @@ public struct GumroadLicenseVerifier: LicenseVerifying {
         }
         return LicenseVerification(isValid: true)
     }
+}
+
+@MainActor
+protocol LicenseKeyStoring {
+    func load() throws -> String?
+    func save(_ key: String) throws
+    func delete() throws
+}
+
+@MainActor
+private struct KeychainLicenseStorage: LicenseKeyStoring {
+    let service: String
+    func load() throws -> String? { try KeychainHelper.load(service: service, account: "license-key") }
+    func save(_ key: String) throws { try KeychainHelper.save(service: service, account: "license-key", data: key) }
+    func delete() throws { try KeychainHelper.delete(service: service, account: "license-key") }
 }
 
 /// Free/Pro 分层与 license 生命周期：
@@ -261,13 +296,16 @@ public final class LicenseManager: ObservableObject {
     @Published public private(set) var lastVerificationProblem: LicenseVerificationProblem?
 
     private let defaults: UserDefaults
-    private let keychainService: String
+    private let keyStorage: any LicenseKeyStoring
     private let verifier: any LicenseVerifying
     private let meter: DailyUsageMeter
     private let now: () -> Date
 
     private let licenseAccount = "license-key"
     private let lastVerifiedKey = "license.lastVerifiedAt"
+    private let disabledKey = "license.disabled"
+    private var operationVersion: UInt64 = 0
+    private var activationPending = false
 
     public convenience init() {
         self.init(
@@ -281,14 +319,15 @@ public final class LicenseManager: ObservableObject {
         defaults: UserDefaults,
         keychainService: String,
         verifier: any LicenseVerifying,
-        now: @escaping () -> Date = Date.init
+        now: @escaping () -> Date = Date.init,
+        keyStorage: (any LicenseKeyStoring)? = nil
     ) {
         self.defaults = defaults
-        self.keychainService = keychainService
+        self.keyStorage = keyStorage ?? KeychainLicenseStorage(service: keychainService)
         self.verifier = verifier
         self.now = now
         self.meter = DailyUsageMeter(defaults: defaults, now: now)
-        if storedKey() != nil, lastVerifiedAt() != nil {
+        if !defaults.bool(forKey: disabledKey), storedKey() != nil, lastVerifiedAt() != nil {
             tier = .pro
         }
     }
@@ -345,19 +384,27 @@ public final class LicenseManager: ObservableObject {
     public func activate(key rawKey: String) async throws {
         let key = rawKey.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !key.isEmpty else { throw LicenseError.emptyKey }
-
+        operationVersion &+= 1
+        let version = operationVersion
+        activationPending = true
+        defer { if operationVersion == version { activationPending = false } }
         let result = try await verifier.verify(key: key, incrementUses: true)
+        guard operationVersion == version else { throw LicenseError.superseded }
         guard result.isValid else {
             throw LicenseError.invalidKey(result.failureReason ?? "未知原因")
         }
-        try? KeychainHelper.save(service: keychainService, account: licenseAccount, data: key)
+        do { try keyStorage.save(key) } catch { throw LicenseError.storage }
         defaults.set(now().timeIntervalSince1970, forKey: lastVerifiedKey)
+        defaults.removeObject(forKey: disabledKey)
         lastVerificationProblem = nil
         tier = .pro
     }
 
     public func deactivate() {
-        try? KeychainHelper.delete(service: keychainService, account: licenseAccount)
+        operationVersion &+= 1
+        activationPending = false
+        defaults.set(true, forKey: disabledKey)
+        try? keyStorage.delete()
         defaults.removeObject(forKey: lastVerifiedKey)
         lastVerificationProblem = nil
         tier = .free
@@ -365,14 +412,18 @@ public final class LicenseManager: ObservableObject {
 
     /// 启动时调用：有 key 且距上次成功复验超过间隔才发网络请求；失败不打扰用户。
     public func revalidateIfNeeded() async {
+        guard !activationPending, !defaults.bool(forKey: disabledKey) else { return }
         guard let key = storedKey() else { return }
         if tier == .pro,
            let last = lastVerifiedAt(),
            now().timeIntervalSince(last) < Double(Self.revalidationIntervalDays) * 86400 {
             return
         }
+        operationVersion &+= 1
+        let version = operationVersion
         do {
             let result = try await verifier.verify(key: key, incrementUses: false)
+            guard version == operationVersion, storedKey() == key else { return }
             if result.isValid {
                 defaults.set(now().timeIntervalSince1970, forKey: lastVerifiedKey)
                 lastVerificationProblem = nil
@@ -382,6 +433,7 @@ public final class LicenseManager: ObservableObject {
                 deactivate()
             }
         } catch {
+            guard version == operationVersion, storedKey() == key else { return }
             // 网络失败：只要本机曾成功验证过，就保留 Pro，避免把可恢复的联网问题伪装成 license 丢失。
             let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
             lastVerificationProblem = .network(reason)
@@ -392,7 +444,7 @@ public final class LicenseManager: ObservableObject {
     // MARK: - Helpers
 
     private func storedKey() -> String? {
-        guard let key = try? KeychainHelper.load(service: keychainService, account: licenseAccount),
+        guard let key = try? keyStorage.load(),
               !key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             return nil
         }

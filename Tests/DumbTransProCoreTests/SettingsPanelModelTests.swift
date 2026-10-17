@@ -17,7 +17,7 @@ struct SettingsPanelModelTests {
             "feedback-about",
         ])
         #expect(SettingsPanelSection.translation.summary == "翻译方式、快捷键、翻译风格、离线语言包")
-        #expect(SettingsPanelSection.feedbackAbout.summary == "邮件反馈、匿名使用数据、版本、官网、GitHub、隐私")
+        #expect(SettingsPanelSection.feedbackAbout.summary == "邮件反馈、使用统计、版本、官网、GitHub、隐私")
     }
 
     @Test func sidebarItemStateMarksSelectedSection() {

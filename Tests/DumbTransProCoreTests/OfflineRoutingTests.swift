@@ -55,21 +55,21 @@ struct OfflineLanguagePairTests {
 }
 
 struct OfflineRewriteFormatterTests {
-    @Test func termLikeInputBecomesKebab() {
-        let result = OfflineRewriteFormatter.format(
+    @Test func termLikeInputBecomesKebab() throws {
+        let result = try OfflineRewriteFormatter.format(
             originalInput: "用户体验设计师",
             english: "User experience designer"
         )
         #expect(result == "user-experience-designer")
     }
 
-    @Test func shortTermBecomesKebab() {
-        #expect(OfflineRewriteFormatter.format(originalInput: "我的项目", english: "My Project") == "my-project")
+    @Test func shortTermBecomesKebab() throws {
+        #expect(try OfflineRewriteFormatter.format(originalInput: "我的项目", english: "My Project") == "my-project")
     }
 
-    @Test func proseInputStaysPlain() {
+    @Test func proseInputStaysPlain() throws {
         let english = "This is a collection of transition effects."
-        let result = OfflineRewriteFormatter.format(
+        let result = try OfflineRewriteFormatter.format(
             originalInput: "这是一个可以直接复制到任何项目中的过渡效果集合。",
             english: english
         )
@@ -77,11 +77,19 @@ struct OfflineRewriteFormatterTests {
         #expect(result == english)
     }
 
-    @Test func proseOutputIsTrimmed() {
-        let result = OfflineRewriteFormatter.format(
+    @Test func proseOutputIsTrimmed() throws {
+        let result = try OfflineRewriteFormatter.format(
             originalInput: "把这个功能尽快上线。",
             english: "  Launch this feature as soon as possible.  "
         )
         #expect(result == "Launch this feature as soon as possible.")
     }
+    @Test func unusableOfflineResultsAreRejected() {
+        for output in ["...", "😀", "```text\n\n```", "---"] {
+            #expect(throws: TranslateError.self) {
+                try OfflineRewriteFormatter.format(originalInput: "我的项目", english: output)
+            }
+        }
+    }
+
 }

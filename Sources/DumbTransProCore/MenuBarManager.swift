@@ -64,7 +64,8 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             await Task.yield()
             try? await Task.sleep(for: .milliseconds(250))
             guard let self else { return }
-            recordUsage(.appLaunched(licenseTier: licenseManager.tier))
+            usageTelemetry.recordAppLaunched(licenseTier: licenseManager.tier)
+            if usageTelemetry.needsConsentDecision { showTelemetryChoice() }
         }
         writeDebug("MenuBarManager init complete")
     }
@@ -90,10 +91,6 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     private func writeDebug(_ msg: String) {
         fputs("[GGS] \(msg)\n", stderr)
         os_log("%{public}@", log: appLog, type: .info, msg)
-    }
-
-    private func recordUsage(_ event: UsageTelemetryEvent) {
-        usageTelemetry.record(event, isEnabled: settingsStore.shareAnonymousUsageData)
     }
 
     private func usageProvider(for mode: TranslationMode) -> UsageTelemetryProvider? {
@@ -328,12 +325,14 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     private func handleAction(_ action: TranslationAction) {
-        switch action {
-        case .rewriteToEnglish:
-            handleBilingualInPlaceTranslation()
-        case .lookup:
-            handleLookup()
-        }
+        guard !isTranslating else { return }
+        isTranslating = true
+        let telemetryAction = UsageTelemetryAction(action: action)
+        let request = usageTelemetry.beginTranslation(action: telemetryAction, licenseTier: licenseManager.tier)
+        startSpinner()
+        if action == .rewriteToEnglish { scheduleLoadingToast() }
+        updateMenu()
+        Task { @MainActor in await runTranslation(action, request: request) }
     }
 
     @objc private func menuActionTriggered(_ sender: NSMenuItem) {
@@ -361,287 +360,159 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         }
     }
 
-    private func handleLookup() {
+    private func finishAction() {
+        isTranslating = false
+        stopSpinner()
+        finishLoadingToast()
+        updateMenu()
+    }
+
+    private func runTranslation(_ action: TranslationAction, request: TelemetryTranslationRequest?) async {
         let mode = currentMode()
+        let provider = usageProvider(for: mode)
+        let route = usageRoute(for: mode)
+        let style = mode == .offline ? TranslationStyle.natural : settingsStore.translationStyle
+        var direction: UsageTelemetryDirection?
+        func finish(_ outcome: UsageTelemetryOutcome, error: UsageTelemetryErrorKind? = nil,
+                    stage: TelemetryFailureStage? = nil, delivery: TelemetryDelivery? = nil) {
+            usageTelemetry.finishTranslation(request, outcome: outcome, route: route, provider: provider,
+                direction: direction, style: style, errorKind: error, failureStage: stage, delivery: delivery)
+            finishAction()
+        }
+        guard checkAccessibility(prompt: false) else {
+            finish(.failed, error: .accessibilityDenied, stage: .selection)
+            showNotification(title: "需要辅助功能权限", message: "请在菜单栏中打开辅助功能设置，允许瞎翻 Pro 读取所选文字和执行快捷键。")
+            return
+        }
         guard mode != .needsSetup else {
-            recordUsage(.translationBlocked(
-                action: .lookup,
-                provider: usageProvider(for: mode),
-                licenseTier: licenseManager.tier,
-                errorKind: .needsSetup
-            ))
+            finish(.failed, error: .needsSetup, stage: .setup)
             showTranslationSetupGuidance()
             return
         }
-        // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。
         if mode == .ai {
-            guard passesLicenseGate(action: .lookup) else { return }
-        }
-        Task { @MainActor in
-            guard let selectedText = await ClipboardManager.getSelectedText(),
-                  !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                if let route = usageRoute(for: mode) {
-                    recordUsage(.translationFailed(
-                        action: .lookup,
-                        route: route,
-                        provider: usageProvider(for: mode),
-                        direction: .foreignToChinese,
-                        style: mode == .offline ? .natural : settingsStore.translationStyle,
-                        licenseTier: licenseManager.tier,
-                        errorKind: .noSelection
-                    ))
-                }
-                showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
+            switch licenseManager.gate(provider: settingsStore.activeProvider) {
+            case .allowed: break
+            case .providerLocked(let lockedProvider):
+                finish(.blocked, error: .providerLocked)
+                showNotification(title: "「\(lockedProvider.displayName)」需要 Pro", message: "免费版可用 \(LicenseManager.freeProviderNames)。在设置中切换服务商或激活 Pro。")
+                return
+            case .dailyLimitReached(let limit):
+                finish(.blocked, error: .dailyLimitReached)
+                showNotification(title: "今日免费额度已用完", message: "免费版每天 \(limit) 次 AI 翻译。菜单栏 → 设置 → Pro 可升级。")
                 return
             }
+        }
+        let selection: ClipboardSelection
+        do {
+            guard let captured = try await ClipboardManager.captureSelection(),
+                  !captured.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+                finish(.failed, error: .noSelection, stage: .selection)
+                showNotification(title: "无法取得所选文字", message: "请重新选中文字后重试。部分应用不支持通过快捷键取词。")
+                return
+            }
+            selection = captured
+        } catch {
+            finish(.failed, error: .clipboardBusy, stage: .selection)
+            showNotification(title: "取词已中止", message: "焦点或剪贴板发生变化，请重新选中文字后重试。")
+            return
+        }
+        if mode == .offline {
+            guard let engine = offlineTranslator, await engine.availability() == .ready else {
+                finish(.failed, error: .offlineLanguageMissing, stage: .setup)
+                showOfflineSetupGuidance()
+                return
+            }
+        }
+        let selectedText = selection.text
+        if action == .lookup {
+            direction = .foreignToChinese
+            let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
+            let engine = offlineTranslator
+            lookupPanelManager.show(
+                originalText: selectedText,
+                modelLabel: mode == .ai ? settingsStore.model : "离线翻译 · 设备端",
+                onSuccess: { [weak self] in
+                    guard let self else { return }
+                    if mode == .ai { self.licenseManager.recordTranslation() }
+                    finish(.succeeded, delivery: .panelShown)
+                },
+                onFailure: { error in finish(.failed, error: UsageTelemetryErrorKind(error: error), stage: .engine) },
+                onCancelled: { finish(.cancelled) },
+                fetch: { text in
+                    if mode == .ai { return try await service.lookup(text, style: style) }
+                    guard let engine else { throw TranslateError.invalidResponse }
+                    let output = try await engine.lookupToChinese(text)
+                    let validOutput = try TranslationOutputValidator.validate(output)
+                    let result = TextFormatter.repairForeignToChineseTranslation(source: text, translation: validOutput)
+                    return LookupResult(text: try TranslationOutputValidator.validate(result), didFallback: false)
+                }
+            )
+            return
+        }
+        let rewriteDirection = TextFormatter.rewriteDirection(for: selectedText)
+        direction = UsageTelemetryDirection(direction: rewriteDirection)
+        do {
+            let output: String
             switch mode {
             case .ai:
                 let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
-                let style = settingsStore.translationStyle
-                lookupPanelManager.show(
-                    originalText: selectedText,
-                    modelLabel: settingsStore.model,
-                    onSuccess: { [weak self] in
-                        guard let self else { return }
-                        self.licenseManager.recordTranslation()
-                        self.recordUsage(.translationSucceeded(
-                            action: .lookup,
-                            route: .ai,
-                            provider: self.usageProvider(for: mode),
-                            direction: .foreignToChinese,
-                            style: style,
-                            licenseTier: self.licenseManager.tier
-                        ))
-                    },
-                    onFailure: { [weak self] error in
-                        guard let self else { return }
-                        self.recordUsage(.translationFailed(
-                            action: .lookup,
-                            route: .ai,
-                            provider: self.usageProvider(for: mode),
-                            direction: .foreignToChinese,
-                            style: style,
-                            licenseTier: self.licenseManager.tier,
-                            errorKind: UsageTelemetryErrorKind(error: error)
-                        ))
-                    },
-                    fetch: { try await service.lookup($0, style: style) }
-                )
+                switch rewriteDirection {
+                case .chineseToEnglish: output = try await service.translate(selectedText, style: style)
+                case .foreignToChinese: output = try await service.translateToChinese(selectedText, style: style)
+                }
             case .offline:
-                guard let engine = offlineTranslator else { return }
-                guard await engine.availability() == .ready else {
-                    recordUsage(.translationFailed(
-                        action: .lookup,
-                        route: .offline,
-                        provider: nil,
-                        direction: .foreignToChinese,
-                        style: .natural,
-                        licenseTier: licenseManager.tier,
-                        errorKind: .offlineLanguageMissing
-                    ))
-                    showNotification(title: "离线翻译需要语言包", message: "打开 设置 → 离线翻译，点「下载离线语言包」即可。一次下好，永久离线。")
-                    return
+                guard let engine = offlineTranslator else { throw TranslateError.invalidResponse }
+                switch rewriteDirection {
+                case .chineseToEnglish:
+                    output = try OfflineRewriteFormatter.format(originalInput: selectedText, english: await engine.rewriteToEnglish(selectedText))
+                case .foreignToChinese:
+                    let raw = try await engine.lookupToChinese(selectedText)
+                    let valid = try TranslationOutputValidator.validate(raw)
+                    output = TextFormatter.repairForeignToChineseTranslation(source: selectedText, translation: valid)
                 }
-                lookupPanelManager.show(
-                    originalText: selectedText,
-                    modelLabel: "离线翻译 · 设备端",
-                    onSuccess: { [weak self] in
-                        guard let self else { return }
-                        self.recordUsage(.translationSucceeded(
-                            action: .lookup,
-                            route: .offline,
-                            provider: nil,
-                            direction: .foreignToChinese,
-                            style: .natural,
-                            licenseTier: self.licenseManager.tier
-                        ))
-                    },
-                    onFailure: { [weak self] error in
-                        guard let self else { return }
-                        self.recordUsage(.translationFailed(
-                            action: .lookup,
-                            route: .offline,
-                            provider: nil,
-                            direction: .foreignToChinese,
-                            style: .natural,
-                            licenseTier: self.licenseManager.tier,
-                            errorKind: UsageTelemetryErrorKind(error: error)
-                        ))
-                    },
-                    fetch: {
-                        let text = $0
-                        let output = try await engine.lookupToChinese(text)
-                        return LookupResult(
-                            text: TextFormatter.repairForeignToChineseTranslation(source: text, translation: output),
-                            didFallback: false
-                        )
-                    }
-                )
-            case .needsSetup:
-                return
+            case .needsSetup: throw TranslateError.noAPIKey
             }
+            let result = try TranslationOutputValidator.validate(output)
+            if mode == .ai { licenseManager.recordTranslation() }
+            let pasteOutcome = try? await ClipboardManager.pasteText(result, replacing: selection.target)
+            if pasteOutcome == .pasteRequested {
+                finish(.succeeded, delivery: .pasteRequested)
+            } else {
+                lookupPanelManager.showResult(originalText: selectedText, translation: result,
+                    label: "选区已变化，请复制译文后粘贴")
+                finish(.succeeded, delivery: .manualCopyAvailable)
+            }
+        } catch {
+            finish(.failed, error: UsageTelemetryErrorKind(error: error), stage: .engine)
+            showNotification(title: "翻译失败", message: error.localizedDescription)
         }
     }
 
-    /// 翻译动作的 Free/Pro 闸口。被拦时给出下一步引导，不是冷拒绝。
-    private func passesLicenseGate(action: UsageTelemetryAction) -> Bool {
-        switch licenseManager.gate(provider: settingsStore.activeProvider) {
-        case .allowed:
-            return true
-        case .providerLocked(let provider):
-            recordUsage(.translationBlocked(
-                action: action,
-                provider: UsageTelemetryProvider(provider: provider),
-                licenseTier: licenseManager.tier,
-                errorKind: .providerLocked
-            ))
-            showNotification(
-                title: "「\(provider.displayName)」需要 Pro",
-                message: "免费版可用 \(LicenseManager.freeProviderNames)。可在设置中切换服务商，或激活 Pro 解锁全部。"
-            )
-            return false
-        case .dailyLimitReached(let limit):
-            recordUsage(.translationBlocked(
-                action: action,
-                provider: usageProvider(for: .ai),
-                licenseTier: licenseManager.tier,
-                errorKind: .dailyLimitReached
-            ))
-            showNotification(
-                title: "今日免费额度已用完",
-                message: "免费版每天 \(limit) 次翻译。升级 Pro 解锁不限次数：菜单栏 → 设置 → Pro。"
-            )
-            return false
+    private func showOfflineSetupGuidance() {
+        showNotification(title: "离线翻译需要语言包", message: "已打开翻译设置。请下载中文和英文语言包后重试。")
+        showSettings(section: .translation)
+    }
+
+    private func showTelemetryChoice() {
+        let alert = NSAlert()
+        alert.messageText = "帮助改进瞎翻 Pro"
+        alert.informativeText = "允许发送使用次数、成功或失败情况和随机安装编号，用于了解使用频率和改进稳定性。不会收集翻译内容、剪贴板或密钥。你可以随时关闭，翻译功能不受影响。"
+        alert.addButton(withTitle: "允许使用统计")
+        alert.addButton(withTitle: "暂不开启")
+        alert.addButton(withTitle: "隐私政策")
+        switch alert.runModal() {
+        case .alertFirstButtonReturn: usageTelemetry.setConsent(true)
+        case .alertSecondButtonReturn: usageTelemetry.setConsent(false)
+        default:
+            NSWorkspace.shared.open(URL(string: "https://uxwangy-code.github.io/DumbTransPro/privacy.html")!)
+            showSettings(section: .feedbackAbout)
         }
     }
 
-    private func handleBilingualInPlaceTranslation() {
-        guard !isTranslating else { return }
-        let mode = currentMode()
-        guard mode != .needsSetup else {
-            recordUsage(.translationBlocked(
-                action: .rewrite,
-                provider: usageProvider(for: mode),
-                licenseTier: licenseManager.tier,
-                errorKind: .needsSetup
-            ))
-            showTranslationSetupGuidance()
-            return
-        }
-        // 离线免费无限，不过闸口；只有 AI 路径计额度/查 Pro。
-        if mode == .ai {
-            guard passesLicenseGate(action: .rewrite) else { return }
-        }
+    @objc private func openSettings() { showSettings(section: .aiService) }
 
-        isTranslating = true
-        startSpinner()
-        scheduleLoadingToast()
-        updateMenu()
-
-        Task { @MainActor in
-            let style = settingsStore.translationStyle
-            defer {
-                isTranslating = false
-                stopSpinner()
-                finishLoadingToast()
-                updateMenu()
-                writeDebug("handleBilingualInPlaceTranslation complete (\(mode), \(style.title))")
-            }
-
-            writeDebug("Getting selected text for handleBilingualInPlaceTranslation... (mode: \(mode), style: \(style.title))")
-            guard let selectedText = await ClipboardManager.getSelectedText(),
-                  !selectedText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-                writeDebug("No text selected")
-                if let route = usageRoute(for: mode) {
-                    recordUsage(.translationFailed(
-                        action: .rewrite,
-                        route: route,
-                        provider: usageProvider(for: mode),
-                        direction: nil,
-                        style: mode == .offline ? .natural : style,
-                        licenseTier: licenseManager.tier,
-                        errorKind: .noSelection
-                    ))
-                }
-                showNotification(title: "瞎翻 Pro", message: "未选中任何文字")
-                return
-            }
-            writeDebug("Selected text length: \(selectedText.count)")
-
-            var directionForTelemetry: UsageTelemetryDirection?
-            do {
-                let direction = TextFormatter.rewriteDirection(for: selectedText)
-                directionForTelemetry = UsageTelemetryDirection(direction: direction)
-                let result: String
-                switch mode {
-                case .ai:
-                    let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
-                    switch direction {
-                    case .chineseToEnglish:
-                        result = try await service.translate(selectedText, style: style)
-                    case .foreignToChinese:
-                        result = try await service.translateToChinese(selectedText, style: style)
-                    }
-                    licenseManager.recordTranslation()
-                case .offline:
-                    guard let engine = offlineTranslator else { return }
-                    guard await engine.availability() == .ready else {
-                        recordUsage(.translationFailed(
-                            action: .rewrite,
-                            route: .offline,
-                            provider: nil,
-                            direction: directionForTelemetry,
-                            style: .natural,
-                            licenseTier: licenseManager.tier,
-                            errorKind: .offlineLanguageMissing
-                        ))
-                        showNotification(title: "离线翻译需要语言包", message: "打开 设置 → 离线翻译，点「下载离线语言包」即可。一次下好，永久离线。")
-                        return
-                    }
-                    switch direction {
-                    case .chineseToEnglish:
-                        let english = try await engine.rewriteToEnglish(selectedText)
-                        result = OfflineRewriteFormatter.format(originalInput: selectedText, english: english)
-                    case .foreignToChinese:
-                        let chinese = try await engine.lookupToChinese(selectedText)
-                        result = TextFormatter.repairForeignToChineseTranslation(source: selectedText, translation: chinese)
-                    }
-                case .needsSetup:
-                    return
-                }
-                writeDebug("Translation result length: \(result.count)")
-                await ClipboardManager.pasteText(result)
-                if let route = usageRoute(for: mode) {
-                    recordUsage(.translationSucceeded(
-                        action: .rewrite,
-                        route: route,
-                        provider: usageProvider(for: mode),
-                        direction: directionForTelemetry,
-                        style: mode == .offline ? .natural : style,
-                        licenseTier: licenseManager.tier
-                    ))
-                }
-                writeDebug("Paste complete")
-            } catch {
-                writeDebug("Translation error: \(error)")
-                if let route = usageRoute(for: mode) {
-                    recordUsage(.translationFailed(
-                        action: .rewrite,
-                        route: route,
-                        provider: usageProvider(for: mode),
-                        direction: directionForTelemetry,
-                        style: mode == .offline ? .natural : style,
-                        licenseTier: licenseManager.tier,
-                        errorKind: UsageTelemetryErrorKind(error: error)
-                    ))
-                }
-                showNotification(title: "翻译失败", message: error.localizedDescription)
-            }
-        }
-    }
-
-    @objc private func openSettings() {
-        if let window = settingsWindow, window.isVisible {
+    private func showSettings(section: SettingsPanelSection) {
+        if section == .aiService, let window = settingsWindow, window.isVisible {
             window.makeKeyAndOrderFront(nil)
             NSApp.activate(ignoringOtherApps: true)
             return
@@ -656,7 +527,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             backing: .buffered,
             defer: false
         )
-        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager, license: licenseManager, offlineTranslator: offlineTranslator) { [weak window] in
+        let view = SettingsView(store: settingsStore, hotkeyManager: hotkeyManager, license: licenseManager, offlineTranslator: offlineTranslator, telemetry: usageTelemetry, initialSection: section) { [weak window] in
             window?.close()
         }
         window.title = "瞎翻 Pro 设置"

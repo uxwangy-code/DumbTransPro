@@ -13,6 +13,13 @@ final class LookupPanelManager {
     private var translationTask: Task<Void, Never>?
     private var slowHintTask: Task<Void, Never>?
     private var stateObservers: Set<AnyCancellable> = []
+    private var onCancelPending: (() -> Void)?
+
+    func showResult(originalText: String, translation: String, label: String) {
+        show(originalText: originalText, modelLabel: label,
+             result: LookupResult(text: translation, didFallback: false),
+             fetch: { _ in LookupResult(text: translation, didFallback: false) })
+    }
 
     /// 展示划词翻译面板。翻译来源由调用方通过 `fetch` 注入（AI 或离线），
     /// 面板本身不关心来源；`modelLabel` 显示在底栏（AI 显示模型名，离线显示「离线·设备端」）。
@@ -21,11 +28,20 @@ final class LookupPanelManager {
         modelLabel: String,
         onSuccess: (() -> Void)? = nil,
         onFailure: ((Error) -> Void)? = nil,
+        onCancelled: (() -> Void)? = nil,
+        result: LookupResult? = nil,
         fetch: @escaping @MainActor (String) async throws -> LookupResult
     ) {
         close()
+        onCancelPending = onCancelled
 
         let state = LookupPanelState(originalText: originalText, modelName: modelLabel)
+        if let result {
+            state.translation = result.text
+            state.didFallback = result.didFallback
+            state.isLoading = false
+            onCancelPending = nil
+        }
         state.onClose = { [weak self] in self?.close() }
         panelState = state
 
@@ -68,6 +84,7 @@ final class LookupPanelManager {
         }
         .store(in: &stateObservers)
 
+        guard result == nil else { return }
         if originalText.count > Self.slowHintCharThreshold {
             slowHintTask = Task { [weak state] in
                 try? await Task.sleep(nanoseconds: Self.slowHintDelayNanos)
@@ -81,6 +98,7 @@ final class LookupPanelManager {
             do {
                 let result = try await fetch(originalText)
                 guard !Task.isCancelled else { return }
+                self?.onCancelPending = nil
                 state.translation = result.text
                 state.didFallback = result.didFallback
                 state.isLoading = false
@@ -88,6 +106,7 @@ final class LookupPanelManager {
                 onSuccess?()
             } catch {
                 guard !Task.isCancelled else { return }
+                self?.onCancelPending = nil
                 state.error = error.localizedDescription
                 state.isLoading = false
                 state.isSlowLoading = false
@@ -116,6 +135,8 @@ final class LookupPanelManager {
     }
 
     func close() {
+        let cancelled = onCancelPending
+        onCancelPending = nil
         translationTask?.cancel()
         translationTask = nil
         slowHintTask?.cancel()
@@ -125,5 +146,6 @@ final class LookupPanelManager {
         panel = nil
         hostingController = nil
         panelState = nil
+        cancelled?()
     }
 }

@@ -131,4 +131,16 @@ struct HotkeyChipReducerTests {
         )
         #expect(newState == .resting)
     }
+    @Test func unmodifiedOrShiftOnlyKeysDoNotCommit() {
+        for modifiers in [UInt32(0), UInt32(shiftKey)] {
+            let state: RecorderState = .recording(returnTo: .resting)
+            let config = HotkeyConfig(keyCode: UInt32(kVK_ANSI_A), modifiers: modifiers)
+            let (next, effects) = HotkeyChipReducer.reduce(
+                state: state, event: .keyDown(config: config, conflict: .none)
+            )
+            #expect(next == state)
+            #expect(effects == [.beep])
+        }
+    }
+
 }

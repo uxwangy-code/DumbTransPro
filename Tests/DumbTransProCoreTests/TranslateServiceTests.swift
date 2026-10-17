@@ -638,4 +638,32 @@ struct TranslateServiceTests {
         let prompt = try requestPrompt()
         #expect(prompt.contains("典雅"))
     }
+    @Test func nonemptyTruncatedContentIsRejected() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"finish_reason":"length","message":{"content":"Partial translation"}}]}"#.data(using: .utf8)
+        let service = TranslateService(apiKey: "test", session: makeTestSession())
+        await #expect(throws: (any Error).self) {
+            try await service.translate("项目")
+        }
+    }
+
+    @Test func punctuationOnlyFilenameOutputIsRejected() async throws {
+        MockURLProtocol.reset()
+        MockURLProtocol.mockResponseData = #"{"choices":[{"finish_reason":"stop","message":{"content":"..."}}]}"#.data(using: .utf8)
+        let service = TranslateService(apiKey: "test", session: makeTestSession())
+        await #expect(throws: (any Error).self) {
+            try await service.translate("项目")
+        }
+    }
+
+    @Test func emptyFencedLookupIsRejectedBeforeSourceRepair() async throws {
+        MockURLProtocol.reset()
+        let body: [String: Any] = ["choices": [["finish_reason": "stop", "message": ["content": "```text\n\n```"]]]]
+        MockURLProtocol.mockResponseData = try JSONSerialization.data(withJSONObject: body)
+        let service = TranslateService(apiKey: "test", session: makeTestSession())
+        await #expect(throws: (any Error).self) {
+            try await service.lookup("what model are you")
+        }
+    }
+
 }

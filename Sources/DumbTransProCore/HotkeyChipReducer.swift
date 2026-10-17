@@ -73,6 +73,7 @@ public enum HotkeyChipReducer {
             return (state, [.beep])
 
         case (.recording(let returnTo), .keyDown(let cfg, let conflict)):
+            guard cfg.hasRequiredModifier else { return (state, [.beep]) }
             switch conflict {
             case .none:
                 return (.resting, [.removeMonitor, .resumeAllHotkeys, .commit(cfg)])

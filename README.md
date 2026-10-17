@@ -17,7 +17,7 @@ select text          ->  Cmd+Shift+F  ->  弹窗查看中文译文
 - **短词自动格式化**：适合文件名、搜索词、变量名，短词会整理成 `kebab-case`。
 - **划词翻译**：`Cmd+Shift+F`，选中外文后弹出中文译文，不改动原文。
 - **三种风格**：土翻、正翻、装翻。日常用正翻，另外两个用于娱乐化或风格化表达。
-- **离线翻译**：macOS 15+ 可用 Apple 设备端翻译，免 API key，不联网。
+- **离线翻译**：macOS 15+ 可用 Apple 设备端翻译，免 API key，首次需下载语言包；翻译文本在本地处理。
 - **多家 AI 服务商**：支持 OpenAI、智谱 GLM、DeepSeek、Kimi、MiniMax、通义千问、豆包和自定义 OpenAI 兼容 endpoint。
 - **本地安全存储**：API key 和 License key 存在 macOS Keychain，不写入明文配置。
 
@@ -101,14 +101,14 @@ bash scripts/bundle.sh
 bash scripts/bundle.sh --install --launch
 ```
 
-匿名使用数据本地验证：
+使用统计本地验证：
 
 ```bash
 bash scripts/verify-telemetry-local.sh
 cat build/telemetry/events.jsonl
 ```
 
-生产匿名使用数据收集端在
+生产使用统计收集端在
 `https://telemetry.whimsycode.com/events`，由独立仓库
 `DumbTransProTelemetry` 维护。正式发版默认会写入这个端点；如需本地或临时环境验证，可以手动覆盖。切到自建授权服务时，同时注入购买入口和 license 校验接口；未配置校验接口时会继续使用 Gumroad 旧 key 校验：
 
@@ -121,7 +121,7 @@ DUMBTRANS_LICENSE_VERIFY_URL="https://license.whimsycode.com/api/licenses/verify
 
 GitHub Pages 只能托管静态文件，不能接收 App 发来的 `POST /events`。
 
-正式发版请走 `scripts/release-update.sh`。它默认会把生产匿名使用数据端点、购买入口和 license 校验接口写进发布包，并在打包 zip 前调用 `scripts/check-release-artifact.sh` 检查 `Info.plist`；缺少 `DTPUsageTelemetryURL`、`DTPLicensePurchaseURL`、`DTPLicenseVerifyURL` 或版本号不匹配时会直接失败。
+正式发版请走 `scripts/release-update.sh`。它默认会把生产使用统计端点、购买入口和 license 校验接口写进发布包，并在打包 zip 前调用 `scripts/check-release-artifact.sh` 检查 `Info.plist`；缺少 `DTPUsageTelemetryURL`、`DTPLicensePurchaseURL`、`DTPLicenseVerifyURL` 或版本号不匹配时会直接失败。
 
 ## 项目结构
 
@@ -139,3 +139,11 @@ scripts/                              # 构建与签名脚本
 [Source-Available](./LICENSE) © 2026 WhimsyCode (Thirty)
 
 代码公开，欢迎阅读、学习、提 PR；个人可自行编译在自己的设备上使用。不允许分发二进制或商用。v1.2.3 及更早版本仍为 MIT。
+
+## 使用统计（v1.5.5）
+
+首次允许后生成随机安装编号，用于每天活跃安装、翻译次数和成功/失败统计。设置 → 反馈与关于可关闭、复制编号及申请删除；旧版默认开启不会自动授权新统计。没有账号或硬件指纹，安装数不等于精确人数。
+
+事件使用 schema v3，按 eventId 和每次翻译请求去重。本地队列上限 1,000 条 / 2 MiB / 7 天；临时网络失败重试，关闭清队列。队列不含翻译内容、剪贴板或密钥。服务端原始事件按接收时间保留 90 天、安装记录按 180 天无有效事件清理；定时清理每小时运行。旧版 v1/v2 继续兼容。
+
+开发构建仅向本地或测试服务上报，不使用生产统计地址。更多内容见 [隐私政策](docs/privacy.html)。

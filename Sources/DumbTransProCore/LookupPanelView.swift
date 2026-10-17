@@ -3,6 +3,7 @@ import SwiftUI
 
 struct LookupPanelView: View {
     @ObservedObject var state: LookupPanelState
+    @State private var didCopy = false
 
     private static let collapsedOriginalLineLimit = 2
     private static let originalHorizontalPadding: CGFloat = 14
@@ -197,6 +198,16 @@ struct LookupPanelView: View {
     private var footerBar: some View {
         if !state.modelName.isEmpty {
             HStack {
+                if !state.isLoading && state.error == nil && !state.translation.isEmpty {
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        didCopy = NSPasteboard.general.setString(state.translation, forType: .string)
+                    } label: {
+                        Label(didCopy ? "已复制" : "复制译文", systemImage: didCopy ? "checkmark" : "doc.on.doc")
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                }
                 Spacer()
                 Text(state.modelName)
                     .font(.caption2)

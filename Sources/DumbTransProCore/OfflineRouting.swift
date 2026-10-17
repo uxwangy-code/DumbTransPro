@@ -54,12 +54,15 @@ public enum TranslationMode: Equatable, Sendable {
 /// 词条 → kebab 文件名，句子 → 去空白的英文。引擎只负责给出纯英文，
 /// 这里把「offline 也能出 kebab 文件名」的产品逻辑收在一处、可单测。
 public enum OfflineRewriteFormatter {
-    public static func format(originalInput: String, english: String) -> String {
+    public static func format(originalInput: String, english: String) throws -> String {
+        let cleaned = try TranslationOutputValidator.validate(english)
+        let formatted: String
         switch TextFormatter.rewriteInputKind(originalInput) {
         case .termLike:
-            return TextFormatter.toKebabCase(english)
+            formatted = TextFormatter.toKebabCase(cleaned)
         case .proseLike:
-            return english.trimmingCharacters(in: .whitespacesAndNewlines)
+            formatted = cleaned
         }
+        return try TranslationOutputValidator.validate(formatted)
     }
 }

@@ -11,9 +11,11 @@ public final class HotkeyManager {
         case unknown(OSStatus)
     }
 
-    private var hotKeys: [TranslationAction: KS_HotKey] = [:]
+    private var hotKeys: [TranslationAction: AnyObject] = [:]
+    private let backend: any HotkeyRegistrationBackend
 
-    public init() {}
+    public init() { backend = CarbonHotkeyBackend() }
+    init(backend: any HotkeyRegistrationBackend) { self.backend = backend }
 
     @discardableResult
     public func start(initial: [TranslationAction: HotkeyConfig?]) -> [TranslationAction: RegisterError] {
@@ -46,25 +48,24 @@ public final class HotkeyManager {
     }
 
     public func pauseAll() {
-        KS_HotKeyCenter.shared.pauseAll()
+        backend.pauseAll()
     }
 
     public func resumeAll() {
-        KS_HotKeyCenter.shared.resumeAll()
+        backend.resumeAll()
     }
 
     private func registerInternal(action: TranslationAction, config: HotkeyConfig?) -> RegisterError? {
         guard let config else { return nil }
+        guard config.hasRequiredModifier else { return .invalidParameter }
         do {
-            let hotKey = try KS_HotKey(
-                carbonKeyCode: Int(config.keyCode),
-                carbonModifiers: Int(config.modifiers),
+            let hotKey = try backend.register(
+                config: config,
                 onKeyDown: { [weak self] in
                     Task { @MainActor [weak self] in
                         self?.onAction?(action)
                     }
-                },
-                onKeyUp: {}
+                }
             )
             hotKeys[action] = hotKey
             return nil
@@ -78,4 +79,21 @@ public final class HotkeyManager {
             return .unknown(0)
         }
     }
+}
+
+@MainActor
+protocol HotkeyRegistrationBackend {
+    func register(config: HotkeyConfig, onKeyDown: @escaping @MainActor () -> Void) throws -> AnyObject
+    func pauseAll()
+    func resumeAll()
+}
+
+@MainActor
+private struct CarbonHotkeyBackend: HotkeyRegistrationBackend {
+    func register(config: HotkeyConfig, onKeyDown: @escaping @MainActor () -> Void) throws -> AnyObject {
+        try KS_HotKey(carbonKeyCode: Int(config.keyCode), carbonModifiers: Int(config.modifiers),
+                      onKeyDown: onKeyDown, onKeyUp: {})
+    }
+    func pauseAll() { KS_HotKeyCenter.shared.pauseAll() }
+    func resumeAll() { KS_HotKeyCenter.shared.resumeAll() }
 }

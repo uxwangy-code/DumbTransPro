@@ -246,6 +246,35 @@ struct LicenseGatewayVerifierTests {
         return URLSession(configuration: config)
     }
 
+    @Test func gumroadTemporaryAndMalformedResponsesNeverInvalidateLicense() async {
+        for (status, body) in [(429, "{\"success\":false}"), (503, "{\"success\":false}"), (200, "{}"), (200, "{\"success\":true}")] {
+            LicenseURLProtocol.reset()
+            LicenseURLProtocol.mockStatusCode = status
+            LicenseURLProtocol.mockResponseData = Data(body.utf8)
+            let verifier = CompositeLicenseVerifier(verifiers: [
+                MockVerifier(behavior: .invalid("not_found")),
+                GumroadLicenseVerifier(session: makeTestSession()),
+            ])
+            await #expect(throws: LicenseError.self) {
+                _ = try await verifier.verify(key: "TEST-KEY", incrementUses: false)
+            }
+        }
+    }
+
+    @Test func malformedGatewayResponseCannotBecomeExplicitInvalidThroughFallback() async {
+        for body in ["{}", "{\"error\":\"maintenance\"}", "{\"valid\":1}", "{\"valid\":\"false\"}"] {
+            LicenseURLProtocol.reset()
+            LicenseURLProtocol.mockResponseData = Data(body.utf8)
+            let verifier = CompositeLicenseVerifier(verifiers: [
+                LicenseGatewayVerifier(session: makeTestSession(), verifyURL: URL(string: "https://license.example.com/verify")!),
+                MockVerifier(behavior: .invalid("not_found")),
+            ])
+            await #expect(throws: LicenseError.self) {
+                _ = try await verifier.verify(key: "GATEWAY-TEST-KEY", incrementUses: false)
+            }
+        }
+    }
+
     @Test func activationPostsJSONBodyToConfiguredEndpoint() async throws {
         LicenseURLProtocol.reset()
         LicenseURLProtocol.mockResponseData = Data("""

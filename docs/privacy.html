@@ -22,31 +22,23 @@ a:hover { text-decoration: underline; }
 <div class="wrap">
 <a class="back" href="index.html" data-en="← DumbTrans Pro">← 瞎翻 Pro</a>
 <h1 data-en="Privacy Policy">隐私政策</h1>
-<p class="updated" data-en="Last updated: June 28, 2026">最后更新：2026 年 6 月 28 日</p>
-
-<div class="tldr" data-en="<strong>Short version:</strong> DumbTrans Pro has no accounts and does not collect your translation text, API keys, license keys, clipboard contents, typed input, or personal identity. Anonymous usage data is on by default to help us improve the service, and you can turn it off in Settings at any time."><strong>简版：</strong>瞎翻 Pro 没有账号，也不收集你的翻译原文、译文、API Key、License Key、剪贴板内容、输入内容或个人身份信息。匿名使用数据默认开启，用于帮助我们改进服务；你可以随时在设置里关闭。</div>
-
-<h2 data-en="What the App stores, and where">App 存什么、存在哪</h2>
-<ul>
-<li data-en="<strong>API keys</strong> you enter are stored in the macOS Keychain on your device. They are sent only to the corresponding AI provider's endpoint, never to us."><strong>你输入的 API key</strong> 存在你设备的 macOS 钥匙串里，只发给对应的 AI 服务商端点，绝不发给我们。</li>
-<li data-en="<strong>License keys</strong> are stored in the macOS Keychain on your device."><strong>License key</strong> 存在你设备的 macOS 钥匙串里。</li>
-<li data-en="<strong>Settings</strong> (chosen provider, hotkeys, translation style, anonymous usage data preference, daily usage count for the free tier) are stored locally in macOS user defaults."><strong>设置项</strong>（所选服务商、快捷键、翻译风格、匿名使用数据偏好、免费版每日用量计数）存在本地 macOS user defaults 里。</li>
-<li data-en="<strong>Your translated text</strong> is not stored by the App at all."><strong>你的译文</strong>，App 根本不存储。</li>
-</ul>
-
-<h2 data-en="Network connections the App makes">App 会发起的网络连接</h2>
-<ul>
-<li data-en="<strong>Offline translation (macOS 15+, no key)</strong> runs entirely on your device and makes no network request at all."><strong>离线翻译（macOS 15+、无 key）</strong>完全在你的设备上完成，不发起任何网络请求。</li>
-<li data-en="<strong>Translation requests</strong> (when you use an AI key) go directly from your Mac to the AI provider you selected (e.g. api.openai.com), authenticated with your own key, under that provider's privacy policy."><strong>翻译请求</strong>（使用 AI key 时）直接从你的 Mac 发给你选的 AI 服务商（如 api.openai.com），用你自己的 key 鉴权，遵循该服务商的隐私政策。</li>
-<li data-en="<strong>License verification</strong> sends your license key (and nothing else) to our license service or Gumroad's license API when you activate, and periodically thereafter."><strong>授权校验</strong>在你激活时（及之后定期）把你的 license key（仅此而已）发给我们的授权服务或 Gumroad 的授权 API。</li>
-<li data-en="<strong>Update checks</strong> fetch a standard appcast file from GitHub Pages via the Sparkle framework. This involves ordinary HTTP request metadata (such as your IP address, visible to GitHub) and no personal data from the App."><strong>检查更新</strong>通过 Sparkle 框架从 GitHub Pages 拉取标准 appcast 文件，只涉及普通 HTTP 请求元数据（如你的 IP，GitHub 可见），不含 App 的任何个人数据。</li>
-<li data-en="<strong>Anonymous usage data</strong> is on by default and can be turned off in Settings → Feedback &amp; About. It uses ordinary HTTPS requests, so the receiving endpoint may see standard request metadata such as your IP address."><strong>匿名使用数据</strong>默认开启，可在「设置 → 反馈与关于」关闭。它使用普通 HTTPS 请求，因此接收端可能看到标准请求元数据，例如你的 IP 地址。</li>
-</ul>
-
-<h2 data-en="What we collect">我们收集什么</h2>
-<p data-en="Anonymous usage data helps us improve the service. The App may send product-level events: app launch, translation success or failure, usage path (in-place translation or lookup), provider type, AI/offline route, coarse error type, App version, macOS version, and Free/Pro tier.">匿名使用数据用于帮助我们改进服务。App 可能发送这些产品层面的事件：启动、翻译成功或失败、使用路径（原地互转或划词翻译）、provider 类型、AI/离线路由、粗粒度错误类型、App 版本、macOS 版本、Free/Pro 状态。</p>
-<p data-en="We never send translation source text, translated text, API keys, license keys, clipboard contents, typed input, custom endpoint URLs, model names, persistent device IDs, names, emails, or other direct personal identifiers as part of anonymous usage data. Failed telemetry requests are silently dropped and not stored in a local retry queue.">匿名使用数据绝不会发送翻译原文、译文、API Key、License Key、剪贴板内容、输入内容、自定义 endpoint URL、模型名称、持久设备 ID、姓名、邮箱或其他直接个人身份标识。发送失败会静默丢弃，不写入本地重试队列。</p>
-<p data-en="If you email us for support, we see your email address and whatever you choose to tell us, and use it only to help you.">如果你发邮件找我们支持，我们会看到你的邮箱和你愿意告诉我们的内容，仅用于帮你解决问题。</p>
+<p class="updated" data-en="Last updated: October 5, 2026 · Applies from v1.5.5">最后更新：2026 年 10 月 5 日 · 适用于 v1.5.5 起</p>
+<div class="tldr" data-en="&lt;strong&gt;Short version:&lt;/strong&gt; No account is required. Usage statistics in this version require your choice to enable them. They include a random installation ID to understand frequency and reliability, but no translation content, clipboard contents or keys. You can turn them off without affecting translation or Pro features."><strong>简版：</strong>翻译无需注册账号。新版使用统计由你选择开启，包含随机安装编号，用于了解使用频率和稳定性；不包含翻译内容、剪贴板或密钥。你可以随时关闭，翻译和 Pro 权益不受影响。</div>
+<h2 data-en="Local storage">本机存储</h2>
+<p data-en="API and license keys are stored in the macOS Keychain. Preferences, telemetry choice and the free usage counter are stored locally. Source and translated text are held in memory for display and safe replacement and are not included in statistics.">API Key 和 License Key 保存在本机 macOS 钥匙串。服务商、快捷键、翻译风格、统计选择和免费额度保存在本地设置中。翻译时，原文和译文在内存中用于显示及安全替换，不写入统计记录。</p>
+<p data-en="After you enable statistics, the App creates a random installation ID and a bounded retry queue in Application Support. The ID is not derived from hardware, your account or license. It survives upgrades and is marked as excluded from normal backups. Removing app data creates a new ID; manually cloning data may duplicate one, so installations are not exact person counts.">允许统计后，App 在 Application Support 生成随机安装编号，并保存有限重试队列。编号不来自硬件、系统账号或 License；升级后保持不变，并设置为不参与常规备份。删除应用数据会产生新编号，手动克隆数据可能复制同一编号，因此安装数不等于精确人数。</p>
+<h2 data-en="Network connections">网络连接</h2>
+<p data-en="On macOS 15+, offline translation processes text on your Mac. Initial setup may need an Apple language pack download. Update checks, license verification and enabled usage statistics can make separate network requests. AI translation sends text and your API key directly to your chosen provider under its policy.">macOS 15+ 的离线翻译在本机处理文字；首次使用可能需要联网下载 Apple 语言包。检查更新、授权校验和你允许的使用统计仍可分别联网。AI 翻译将文字和你的 API Key 直接发给你选择的服务商，遵循其政策。</p>
+<p data-en="License checks send your license key and required product, app and activation parameters to our license service or Gumroad. Sparkle checks updates through GitHub Pages. Statistics go to telemetry.whimsycode.com, hosted on Cloudflare Workers and D1. Ordinary HTTPS requests expose metadata such as IP addresses to service providers. We do not store IP addresses as product analytics fields; platform logs and backups are managed by the hosting service.">授权校验向我们的授权服务或 Gumroad 发送 License Key 和校验所需的商品、应用及激活参数。更新检查通过 Sparkle 访问 GitHub Pages。使用统计发往 telemetry.whimsycode.com，由 Cloudflare Worker 和 D1 承载。普通 HTTPS 连接会向服务提供方暴露 IP 等请求元数据；我们不将 IP 存为产品统计字段，平台日志与备份由承载服务管理。</p>
+<h2 data-en="What usage statistics include">使用统计包含什么</h2>
+<p data-en="Random installation, event and request IDs; event time; app and macOS versions; launch, telemetry enablement and translation start, success, failure, blocking or cancellation; rewrite or lookup; AI/offline route, provider category, direction, style and Free/Pro tier; duration bucket, coarse error, delivery type and queue loss counts. These support installation usage and return-frequency measurements and reliability work. We do not link them to orders or accounts.">随机安装编号、事件编号和单次操作编号；事件时间；App 与 macOS 版本；启动、开启统计、翻译开始、成功、失败、拦截或取消；原地互转或划词；AI 或离线、服务商类别、方向、风格、Free/Pro 状态；耗时区间、粗粒度错误、交付方式和队列丢弃计数。它们用于统计独立安装的使用次数和回访、排查可靠性问题，不与订单或账号关联。</p>
+<p data-en="Statistics exclude source or translated text, clipboard contents, typed input, API or license keys, custom endpoints, model names, hardware identifiers, names, emails and system accounts. The random installation ID links events from one installation over time, so these are not described as fully anonymous data.">统计不包含原文、译文、剪贴板内容、用户输入、API Key、License Key、自定义 Endpoint、模型名、硬件标识、姓名、邮箱或系统账号。随机安装编号可持续关联同一安装的事件，不能称为完全匿名数据。</p>
+<h2 data-en="Retention and retries">保留与重试</h2>
+<p data-en="The local queue is limited to 1,000 events, 2 MiB or seven days, whichever limit is reached first. Temporary failures retry; expired, overflowed, corrupt or permanently rejected events are dropped and counted in diagnostics. Server raw events are retained for 90 days from receipt; installation records are removed after 180 days without a valid product event. Cleanup runs hourly; deletion happens at the next successful run.">本地队列最多保留 1,000 条、2 MiB 或 7 天，达到任一上限会清理。临时网络故障会重试；过期、超限、损坏或被永久拒绝的事件会丢弃并计入诊断。服务器原始使用事件按收到时间保留 90 天；安装汇总记录在连续 180 天未收到有效产品事件后清理。自动清理每小时执行，实际删除在下次成功清理时完成。</p>
+<h2 data-en="Your choice and deletion">你的选择与删除记录</h2>
+<p data-en="A one-time choice is shown on first use of this version or after upgrading. Before consent, no installation ID or backfill history is created. A previous explicit disabled choice is preserved; the old default-enabled preference is not treated as consent for installation analytics. Version 1.5.4 and earlier continue to use their original events without installation IDs.">首次使用新版或升级后，会展示一次统计选择。在选择允许之前，不生成安装编号，不采集待补传历史。旧版已明确关闭的选择会保留；旧版默认开启不视为同意新增安装级统计。v1.5.4 及更早版本仍使用当时的无安装编号事件协议。</p>
+<p data-en="Turn statistics off in Settings → Feedback &amp; About → Usage Statistics to stop further collection and clear pending events. Requests already received by the server may finish. Turning off does not automatically delete history. The local ID is retained so you can request deletion; re-enabling uses the same ID.">在「设置 → 反馈与关于 → 使用统计」随时关闭，会停止后续采集并清空待发送队列。已被服务器接收的请求可能完成，历史记录不会因关闭自动删除。本机编号会保留，便于请求删除；重新开启继续使用该编号。</p>
+<p data-en="Copy the installation ID and choose Request Statistics Deletion on the same settings page, or email &lt;a href=&quot;mailto:hi@whimsycode.com&quot;&gt;hi@whimsycode.com&lt;/a&gt;. After checking the request, we delete associated events and installation records. You confirm before sending the email; it is used to handle your request and support.">可在同一设置页复制本机统计编号并点击「申请删除统计记录」，或发邮件到 <a href="mailto:hi@whimsycode.com">hi@whimsycode.com</a>。我们核对后删除该编号对应的事件及安装记录。邮件由你确认发送；只用于处理请求和支持。</p>
 
 <h2 data-en="Purchases">购买</h2>
 <p data-en="When you buy a license, checkout may be operated by our own purchase page, Gumroad, and/or domestic virtual-card/payment providers such as Qianxun. Payment partners process your payment details under their own privacy policies; we receive your email address, order status, and license status so we can provide support.">购买 license 时，结账可能由我们自己的购买页、Gumroad 和/或千寻等国内虚拟卡/支付服务提供。支付伙伴会按各自的隐私政策处理你的支付信息；我们会收到你的邮箱、订单状态和授权状态，以便提供支持。</p>
@@ -58,7 +50,7 @@ a:hover { text-decoration: underline; }
 <p data-en="If this policy changes materially, the new version will be posted here with an updated date.">若本政策有实质性变更，新版本会连同更新日期发布于此。</p>
 
 <h2 data-en="Contact">联系</h2>
-<p><a href="mailto:ux.wangy@gmail.com">ux.wangy@gmail.com</a></p>
+<p><a href="mailto:hi@whimsycode.com">hi@whimsycode.com</a></p>
 </div>
 <script src="lang.js"></script>
 </body>

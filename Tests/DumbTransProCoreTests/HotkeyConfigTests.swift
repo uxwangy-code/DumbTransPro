@@ -59,4 +59,13 @@ struct HotkeyConfigTests {
         #expect(cfg.keyCode == UInt32(kVK_ANSI_F))
         #expect(cfg.modifiers == UInt32(cmdKey | shiftKey))
     }
+    @Test func globalHotkeysRequireCommandControlOrOption() {
+        for modifiers in [UInt32(0), UInt32(shiftKey)] {
+            #expect(!HotkeyConfig(keyCode: UInt32(kVK_ANSI_A), modifiers: modifiers).hasRequiredModifier)
+        }
+        for modifiers in [UInt32(cmdKey), UInt32(controlKey), UInt32(optionKey), UInt32(cmdKey | shiftKey)] {
+            #expect(HotkeyConfig(keyCode: UInt32(kVK_ANSI_A), modifiers: modifiers).hasRequiredModifier)
+        }
+    }
+
 }

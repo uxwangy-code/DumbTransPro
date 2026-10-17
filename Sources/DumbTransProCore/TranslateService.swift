@@ -6,6 +6,8 @@ public enum TranslateError: Error, LocalizedError {
     case apiError(statusCode: Int, message: String)
     case contentBlocked(message: String)
     case invalidResponse
+    case truncatedOutput
+    case invalidOutput
     case networkError(Error)
 
     public var errorDescription: String? {
@@ -16,6 +18,8 @@ public enum TranslateError: Error, LocalizedError {
         case .contentBlocked(let msg):
             return "服务商触发了内容审核,可能涉及敏感内容。\n建议切换到 OpenAI 等其他服务商重试。\n\n服务商返回:\(msg)"
         case .invalidResponse: return "无效的 API 响应"
+        case .truncatedOutput: return "译文被截断，原文已保留。请重试或缩短选中的文字。"
+        case .invalidOutput: return "没有收到有效译文，原文已保留。请重试或缩短选中的文字。"
         case .networkError(let err): return "网络错误: \(err.localizedDescription)"
         }
     }
@@ -78,9 +82,9 @@ public final class TranslateService: Sendable {
                 timeout: 30,
                 maxTokens: 1500
             )
-            return TextFormatter.toKebabCase(natural)
+            return try TranslationOutputValidator.validate(TextFormatter.toKebabCase(TranslationOutputValidator.clean(natural)))
         }
-        return TextFormatter.toKebabCase(raw)
+        return try TranslationOutputValidator.validate(TextFormatter.toKebabCase(TranslationOutputValidator.clean(raw)))
     }
 
     private func translateProse(_ text: String, style: TranslationStyle) async throws -> String {
@@ -100,10 +104,10 @@ public final class TranslateService: Sendable {
                 timeout: 30,
                 maxTokens: 2000
             )
-            return Self.cleanProseTranslation(natural)
+            return try TranslationOutputValidator.validate(Self.cleanProseTranslation(natural))
         }
 
-        return Self.cleanProseTranslation(raw)
+        return try TranslationOutputValidator.validate(Self.cleanProseTranslation(raw))
     }
 
     public func lookup(_ text: String, style: TranslationStyle = .natural) async throws -> LookupResult {
@@ -124,12 +128,12 @@ public final class TranslateService: Sendable {
                 maxTokens: 4000
             )
             return LookupResult(
-                text: Self.cleanLookupTranslation(natural, source: text, style: .natural),
+                text: try TranslationOutputValidator.validate(Self.cleanLookupTranslation(natural, source: text, style: .natural)),
                 didFallback: true
             )
         }
         return LookupResult(
-            text: Self.cleanLookupTranslation(raw, source: text, style: style),
+            text: try TranslationOutputValidator.validate(Self.cleanLookupTranslation(raw, source: text, style: style)),
             didFallback: false
         )
     }
@@ -249,19 +253,17 @@ public final class TranslateService: Sendable {
     private func extractContent(from data: Data) throws -> String {
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
-              let first = choices.first,
-              let message = first["message"] as? [String: Any] else {
+              let first = choices.first else {
             throw TranslateError.invalidResponse
-        }
-        let primary = (message["content"] as? String) ?? ""
-        if !primary.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return primary
         }
         let finishReason = (first["finish_reason"] as? String) ?? ""
         if finishReason == "length" {
-            throw TranslateError.apiError(statusCode: 200, message: "模型未输出最终答案(可能被 token 上限截断)。请改用非推理模型,或切换到其他端点。")
+            throw TranslateError.truncatedOutput
         }
-        throw TranslateError.invalidResponse
+        if finishReason == "content_filter" { throw TranslateError.contentBlocked(message: "content_filter") }
+        guard let message = first["message"] as? [String: Any] else { throw TranslateError.invalidResponse }
+        // Validate before source-specific repair can turn an unusable answer into apparent success.
+        return try TranslationOutputValidator.validate((message["content"] as? String) ?? "")
     }
 
     private static func isContentBlock(_ message: String) -> Bool {

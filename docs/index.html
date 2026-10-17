@@ -383,7 +383,7 @@ footer a:hover { color: var(--ink); }
 
 <header class="hero wrap">
   <h1 data-en="Select text. Hit <span class=&quot;kbd&quot;>⌘⇧R</span>.<br>It translates <span class=&quot;hl&quot;>in place</span>.">选中文字，按 <span class="kbd">⌘⇧R</span>，<br><span class="hl">中英文原地互转</span>。</h1>
-  <p class="sub" data-en="A tiny macOS menu bar translator for designers and developers. It works the moment you install it, with no API key and nothing sent over the network. Select Chinese to get English back in place; select English to get Chinese back in place. Use lookup when you want a popover.">给设计师和开发者的 macOS 菜单栏翻译小工具。装上就能用，不用配 API key，也不用联网。选中中文一键变英文，选中英文一键变中文；想弹窗查词时再用划词翻译。</p>
+  <p class="sub" data-en="A macOS menu bar translator for designers and developers. Enable Accessibility permission first. On macOS 15+, download language packs for offline translation without an API key. Translate Chinese or English in place, or open a lookup panel.">给设计师和开发者的 macOS 菜单栏翻译小工具。首次启用辅助功能权限；macOS 15+ 下载语言包后可免 API key 离线翻译。选中中文一键变英文，选中英文一键变中文；也能弹窗查词。</p>
 
   <div class="cap-tabs" role="tablist" aria-label="演示能力 / demo capability">
     <button type="button" class="cap active" data-cap="rewrite" data-en="Bidirectional in-place translation ⌘⇧R">中英文原地互转 ⌘⇧R</button>
@@ -416,7 +416,7 @@ footer a:hover { color: var(--ink); }
     <a class="btn btn-ghost" href="https://whimsycode.gumroad.com/l/dumbtranspro" data-en="Overseas Gumroad $1.49">海外 Gumroad $1.49</a>
     <a class="btn btn-ghost" href="https://github.com/uxwangy-code/DumbTransPro/releases/latest" data-en="Download free version">下载免费版</a>
   </div>
-  <p class="cta-note" data-en="Works offline, no key needed (macOS 15+) · Apple Silicon · one-time purchase, no subscription">离线即用、无需 key（macOS 15+）· 仅 Apple 芯片 · 一次买断、不订阅</p>
+  <p class="cta-note" data-en="Offline after language pack setup on macOS 15+ · Apple Silicon · one-time purchase">macOS 15+ 下载语言包后可离线翻译 · 仅 Apple 芯片 · 一次买断</p>
 </header>
 
 <section id="how" class="wrap">
@@ -510,8 +510,8 @@ footer a:hover { color: var(--ink); }
   <h2 data-en="On-device by default. Bring AI when you want it.">默认设备端。想用 AI 再用。</h2>
   <div class="privacy-grid">
     <div class="privacy-card">
-      <h3 data-en="Works offline, zero setup">离线即用，零配置</h3>
-      <p data-en="On macOS 15+, translation runs entirely on your Mac. You get natural English and kebab filenames with no API key, no account, nothing over the wire. Open it and go.">在 macOS 15+ 上，翻译全程在你的 Mac 本机完成，自然英文和 kebab 文件名都能出。不用 key，不用账号，也不联网。打开就用。</p>
+      <h3 data-en="On-device translation, no API key">本机翻译，无需 API key</h3>
+      <p data-en="On macOS 15+, translation text is processed on your Mac after downloading Chinese and English language packs. Grant Accessibility permission for selection capture and in-place replacement.">在 macOS 15+ 上，下载中文和英文语言包后，翻译文字在 Mac 本机处理。首次使用需授予辅助功能权限，便于取词和原地替换。</p>
     </div>
     <div class="privacy-card">
       <h3 data-en="Or bring your own AI key">或者，自带 AI key</h3>
@@ -519,7 +519,7 @@ footer a:hover { color: var(--ink); }
     </div>
     <div class="privacy-card">
       <h3 data-en="Your text stays yours">你的文字，始终是你的</h3>
-      <p data-en="Offline, it never leaves your Mac. With a key, translation text goes straight to the provider you chose. Keys live in the macOS Keychain. Anonymous usage data helps us improve the service and never includes your text or keys.">离线时，文字根本不出你的 Mac。配了 key，翻译文本也是直连你选的服务商。key 存在 macOS 钥匙串里。匿名使用数据用于帮助我们改进服务，且永远不包含你的文本或 key。</p>
+      <p data-en="Offline translation text stays on your Mac. AI translation connects directly to your provider and keys stay in the macOS Keychain. Optional statistics include a random installation ID, never text or keys.">离线翻译的文字留在 Mac。AI 翻译直连你选的服务商，key 存在 macOS 钥匙串里。自愿开启的使用统计包含随机安装编号，不包含文字或密钥。</p>
     </div>
     <div class="privacy-card">
       <h3 data-en="Native, light, no subscription">原生、轻、不订阅</h3>
@@ -577,11 +577,11 @@ footer a:hover { color: var(--ink); }
   <h2 data-en="Questions">常见问题</h2>
   <details>
     <summary data-en="I don't have an API key. Is that a problem?">我没有 API key，有影响吗？</summary>
-    <p data-en="Not on macOS 15+. Translation works offline the moment you install it: Proper style and kebab filenames, no key, no account, no network. Want the Chinglish / Pretentious styles, or you're on macOS 13/14? A free Zhipu key (glm-4-flash) takes one paste.">macOS 15+ 完全没影响。装上就能离线翻，给你正翻和 kebab 文件名，不用 key、不用账号、也不联网。想玩土翻/装翻，或者你在 macOS 13/14，填个免费的智谱 key（glm-4-flash）粘一下就行。</p>
+    <p data-en="On macOS 15+, download language packs to use Proper style and kebab filenames without a key. Accessibility permission is required on first use. Chinglish, Pretentious and translation on macOS 13/14 require your own AI key.">macOS 15+ 下载语言包后，可以不用 key 翻译正翻和 kebab 文件名。首次使用需启用辅助功能权限。土翻、装翻，以及 macOS 13/14 的翻译需要自带 AI key。</p>
   </details>
   <details>
     <summary data-en="Is my text private?">我的文字隐私吗？</summary>
-    <p data-en="Offline (macOS 15+, no key), translation is entirely on-device, so your text never leaves your Mac. With a key, translation text goes directly from your Mac to the AI provider you configured. Anonymous usage data helps us improve the service and never includes your text, keys, clipboard, typed input, or identity. Details in the <a href=&quot;privacy.html&quot;>privacy policy</a>.">离线时（macOS 15+、无 key），翻译全程在设备端，文字根本不出你的 Mac。配了 key，翻译文本也会从你的 Mac 直连你配置的 AI 服务商。匿名使用数据用于帮助我们改进服务，且永远不包含你的文本、key、剪贴板、输入内容或身份信息。详见<a href="privacy.html">隐私政策</a>。</p>
+    <p data-en="Offline translation processes text on-device; AI translation connects to your chosen provider. Statistics are optional and include a random installation ID and usage counts, never text, keys or clipboard contents. See the &lt;a href=&quot;privacy.html&quot;&gt;privacy policy&lt;/a&gt;.">离线翻译的文字在设备端处理；AI 翻译直连你配置的服务商。使用统计由你选择开启，包含随机安装编号和使用次数，不包含文本、密钥或剪贴板。详见<a href="privacy.html">隐私政策</a>。</p>
   </details>
   <details>
     <summary data-en="How many Macs can I use a license on?">一份授权能用几台 Mac？</summary>

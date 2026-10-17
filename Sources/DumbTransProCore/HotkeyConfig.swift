@@ -9,6 +9,10 @@ public struct HotkeyConfig: Codable, Equatable, Sendable, Hashable {
         self.modifiers = modifiers
     }
 
+    public var hasRequiredModifier: Bool {
+        modifiers & UInt32(cmdKey | controlKey | optionKey) != 0
+    }
+
     public var displayString: String {
         var result = ""
         if modifiers & UInt32(controlKey) != 0 { result += "⌃" }

@@ -95,15 +95,14 @@ final class HotkeyChipCoordinator: ObservableObject {
             return event  // bubble for focus traversal
         }
         // Require at least one of {⌘, ⌃, ⌥}.
-        let strippedMods = event.modifierFlags.subtracting([.shift, .function])
-        guard !strippedMods.isEmpty else {
-            dispatch(.invalidKeyDown)
-            return nil
-        }
         let cfg = HotkeyConfig(
             keyCode: UInt32(event.keyCode),
             modifiers: UInt32(event.modifierFlags.carbonRepresentation)
         )
+        guard cfg.hasRequiredModifier else {
+            dispatch(.invalidKeyDown)
+            return nil
+        }
         let conflict = detectConflict(cfg)
         dispatch(.keyDown(config: cfg, conflict: conflict))
         return nil

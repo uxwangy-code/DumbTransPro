@@ -6,6 +6,7 @@ public struct SettingsView: View {
 
     @ObservedObject var store: SettingsStore
     @ObservedObject var license: LicenseManager
+    @ObservedObject var telemetry: UsageTelemetryClient
     let hotkeyManager: HotkeyManager
     private let offlineTranslator: (any OfflineTranslating)?
     @Environment(\.dismiss) private var dismiss
@@ -23,10 +24,14 @@ public struct SettingsView: View {
     @State private var licenseKeyInput: String = ""
     @State private var isActivatingLicense: Bool = false
     @State private var licenseError: String?
+    @State private var exampleResult: String?
+    @State private var exampleRunning = false
 
-    public init(store: SettingsStore, hotkeyManager: HotkeyManager, license: LicenseManager, offlineTranslator: (any OfflineTranslating)? = nil, onClose: (() -> Void)? = nil) {
+    public init(store: SettingsStore, hotkeyManager: HotkeyManager, license: LicenseManager, offlineTranslator: (any OfflineTranslating)? = nil, telemetry: UsageTelemetryClient = UsageTelemetryClient(), initialSection: SettingsPanelSection = .aiService, onClose: (() -> Void)? = nil) {
         self.store = store
         self.license = license
+        self.telemetry = telemetry
+        _selectedSection = State(initialValue: initialSection)
         self.hotkeyManager = hotkeyManager
         self.offlineTranslator = offlineTranslator
         self.onClose = onClose
@@ -52,13 +57,21 @@ public struct SettingsView: View {
             Divider()
 
             VStack(spacing: 0) {
-                ScrollView {
+                ScrollViewReader { proxy in
+                  ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
                         sectionHeader(for: currentSection)
                         selectedSectionContent
                     }
                     .padding(24)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                  }
+                  .onAppear {
+                      if selectedSection == .translation { proxy.scrollTo("offline-language", anchor: .top) }
+                  }
+                  .onChange(of: offlineAvailability) { _ in
+                      if selectedSection == .translation { proxy.scrollTo("offline-language", anchor: .top) }
+                  }
                 }
 
                 Divider()
@@ -199,8 +212,10 @@ public struct SettingsView: View {
 
             if offlineAvailability != nil {
                 Divider()
-                offlineSection
+                offlineSection.id("offline-language")
             }
+            Divider()
+            exampleTranslationSection
         }
     }
 
@@ -544,6 +559,35 @@ public struct SettingsView: View {
         }
     }
 
+    private var exampleTranslationSection: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("检查翻译配置").font(.subheadline)
+            Text("用“你好”测试当前设置，不读取剪贴板，不计入使用统计或免费次数。AI 测试可能消耗服务商的 API 额度。")
+                .font(.caption).foregroundStyle(.secondary)
+            Button(exampleRunning ? "检查中…" : "翻译示例") {
+                exampleRunning = true
+                exampleResult = nil
+                Task { @MainActor in
+                    defer { exampleRunning = false }
+                    do {
+                        if selectedEngine == .offline {
+                            guard let engine = offlineTranslator, await engine.availability() == .ready else {
+                                exampleResult = "请先下载中文和英文语言包。"
+                                return
+                            }
+                            exampleResult = try TranslationOutputValidator.validate(await engine.rewriteToEnglish("你好"))
+                        } else {
+                            let service = TranslateService(apiKey: apiKey, baseURL: baseURLOverride, model: model)
+                            exampleResult = try await service.translate("你好", style: effectiveTranslationStyle)
+                        }
+                    } catch { exampleResult = error.localizedDescription }
+                }
+            }
+            .disabled(exampleRunning || (selectedEngine == .ai && !aiAvailable))
+            if let exampleResult { Text(exampleResult).font(.caption).textSelection(.enabled) }
+        }
+    }
+
     private var licenseSection: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text("Pro")
@@ -619,19 +663,39 @@ public struct SettingsView: View {
             Divider()
 
             VStack(alignment: .leading, spacing: 8) {
-                Text("匿名使用数据")
+                Text("使用统计")
                     .font(.subheadline)
                 Toggle(isOn: Binding(
-                    get: { store.shareAnonymousUsageData },
-                    set: { store.setShareAnonymousUsageData($0) }
+                    get: { telemetry.consentState == .enabled },
+                    set: { telemetry.setConsent($0) }
                 )) {
-                    Text("发送匿名使用数据")
+                    Text("允许使用统计")
                 }
                 .toggleStyle(.switch)
-                Text("用于帮助我们改进服务。只发送匿名使用状态，不发送原文、译文、API Key、License Key、剪贴板、用户输入或个人身份信息。")
+                Text("发送随机安装编号、使用次数、成功或失败、版本和 Free/Pro 状态，帮助了解使用频率。不会发送原文、译文、剪贴板、API Key 或 License Key。关闭会清空待发送事件，翻译功能不受影响；重新开启继续使用本机编号。")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                if let installationID = telemetry.installationID {
+                    HStack {
+                        Button("复制本机统计编号") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(installationID, forType: .string)
+                        }
+                        Button("申请删除统计记录") {
+                            var components = URLComponents()
+                            components.scheme = "mailto"
+                            components.path = SettingsFeedbackMail.recipient
+                            components.queryItems = [
+                                URLQueryItem(name: "subject", value: "删除瞎翻 Pro 使用统计"),
+                                URLQueryItem(name: "body", value: "请删除此安装编号对应的统计记录：\n\(installationID)")
+                            ]
+                            if let url = components.url { openExternalURL(url) }
+                        }
+                    }
+                    Text("关闭不会删除已收到的记录。删除请求会打开邮件草稿，由你确认发送。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
             }
 
             Divider()

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import argparse
 import json
+import re
+from uuid import UUID
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -55,6 +57,10 @@ def validate_payload(payload: Dict[str, Any]) -> None:
 
     reject_forbidden_fields(payload)
 
+    if payload.get("schemaVersion") == 3:
+        validate_v3(payload)
+        return
+
     unknown = set(payload) - TOP_LEVEL_FIELDS
     if unknown:
         raise ValueError(f"unknown top-level field: {sorted(unknown)[0]}")
@@ -99,6 +105,52 @@ def reject_forbidden_fields(value: Any) -> None:
     elif isinstance(value, list):
         for item in value:
             reject_forbidden_fields(item)
+
+
+def validate_v3(payload: Dict[str, Any]) -> None:
+    """Local capture guard. Cross-repo contract tests also use the real collector validator."""
+    fields = {"schemaVersion", "eventId", "installationId", "occurredAt", "policyVersion", "collectionMode", "context", "event"}
+    if set(payload) != fields:
+        raise ValueError("invalid v3 top-level fields")
+    for key in ("eventId", "installationId"):
+        if not isinstance(payload[key], str) or UUID(payload[key]).version != 4:
+            raise ValueError(f"invalid {key}")
+    def timestamp(value):
+        if not isinstance(value, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z", value):
+            raise ValueError("invalid UTC timestamp")
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    occurred = timestamp(payload["occurredAt"])
+    if payload["collectionMode"] != "explicit_opt_in" or payload["policyVersion"] != "2026-10-05":
+        raise ValueError("invalid collection policy")
+    context = payload["context"]
+    if not isinstance(context, dict) or set(context) != CONTEXT_FIELDS | {"buildChannel"}:
+        raise ValueError("invalid context fields")
+    for key in CONTEXT_FIELDS:
+        require_string(context, key, key)
+    require_enum(context, "buildChannel", {"production", "development"}, "buildChannel")
+    event = payload["event"]
+    extra = {"requestId", "requestStartedAt", "durationBucket", "failureStage", "delivery", "diagnosticEpoch", "droppedOverflow", "droppedExpired", "droppedCorrupt", "rejectedPermanent"}
+    if not isinstance(event, dict) or set(event) - (EVENT_FIELDS | extra):
+        raise ValueError("invalid event fields")
+    names = EVENT_NAMES | {"translation_started", "translation_cancelled", "telemetry_enabled", "telemetry_health"}
+    require_enum(event, "name", names, "event.name")
+    if event["name"].startswith("translation_"):
+        UUID(event["requestId"])
+        if timestamp(event["requestStartedAt"]) > occurred:
+            raise ValueError("request starts after event")
+        require_enum(event, "action", ACTIONS, "action")
+        require_enum(event, "licenseTier", LICENSE_TIERS, "licenseTier")
+        if event["name"] != "translation_started":
+            require_enum(event, "durationBucket", {"under_1s", "1_to_3s", "3_to_10s", "10_to_30s", "over_30s"}, "durationBucket")
+    for key, values in [("route", ROUTES), ("provider", PROVIDERS), ("direction", DIRECTIONS), ("style", STYLES),
+                        ("errorKind", ERROR_KINDS | {"accessibility_denied", "clipboard_busy", "invalid_output", "truncated_output"}),
+                        ("delivery", {"panel_shown", "paste_requested", "manual_copy_available"}),
+                        ("failureStage", {"selection", "setup", "engine"})]:
+        optional_enum(event, key, values, key)
+    if event["name"] == "translation_succeeded":
+        require_enum(event, "route", ROUTES, "route")
+    if event["name"] == "translation_failed":
+        require_enum(event, "failureStage", {"selection", "setup", "engine"}, "failureStage")
 
 
 def require_string(data: Dict[str, Any], key: str, label: str) -> None:

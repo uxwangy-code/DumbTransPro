@@ -22,7 +22,7 @@ public enum SettingsPanelSection: String, CaseIterable, Identifiable, Sendable {
         case .aiService: return "服务商、Endpoint、API Key、Model"
         case .translation: return "翻译方式、快捷键、翻译风格、离线语言包"
         case .pro: return "License 激活与停用"
-        case .feedbackAbout: return "邮件反馈、匿名使用数据、版本、官网、GitHub、隐私"
+        case .feedbackAbout: return "邮件反馈、使用统计、版本、官网、GitHub、隐私"
         }
     }
 
