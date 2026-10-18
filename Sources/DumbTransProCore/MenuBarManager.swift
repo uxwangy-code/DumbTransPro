@@ -325,6 +325,8 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
     }
 
     private func handleAction(_ action: TranslationAction) {
+        os_log("action.received action=%{public}@ busy=%{public}d", log: appLog, type: .debug,
+               action.persistenceKey, isTranslating)
         guard !isTranslating else { return }
         isTranslating = true
         let telemetryAction = UsageTelemetryAction(action: action)
@@ -375,6 +377,9 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
         var direction: UsageTelemetryDirection?
         func finish(_ outcome: UsageTelemetryOutcome, error: UsageTelemetryErrorKind? = nil,
                     stage: TelemetryFailureStage? = nil, delivery: TelemetryDelivery? = nil) {
+            os_log("action.finished outcome=%{public}@ error=%{public}@ stage=%{public}@ delivery=%{public}@",
+                   log: appLog, type: .debug, String(describing: outcome), error?.rawValue ?? "none",
+                   stage?.rawValue ?? "none", delivery?.rawValue ?? "none")
             usageTelemetry.finishTranslation(request, outcome: outcome, route: route, provider: provider,
                 direction: direction, style: style, errorKind: error, failureStage: stage, delivery: delivery)
             finishAction()
@@ -412,11 +417,16 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             }
             selection = captured
         } catch {
+            if let clipboardError = error as? ClipboardOperationError {
+                os_log("selection.failed reason=%{public}@", log: appLog, type: .debug,
+                       String(describing: clipboardError))
+            }
             finish(.failed, error: .clipboardBusy, stage: .selection)
             showNotification(title: "取词已中止", message: "焦点或剪贴板发生变化，请重新选中文字后重试。")
             return
         }
         if mode == .offline {
+            os_log("engine.checking_offline_availability", log: appLog, type: .debug)
             guard let engine = offlineTranslator, await engine.availability() == .ready else {
                 finish(.failed, error: .offlineLanguageMissing, stage: .setup)
                 showOfflineSetupGuidance()
@@ -424,6 +434,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             }
         }
         let selectedText = selection.text
+        os_log("engine.start action=%{public}@", log: appLog, type: .debug, action.persistenceKey)
         if action == .lookup {
             direction = .foreignToChinese
             let service = TranslateService(apiKey: settingsStore.apiKey, baseURL: settingsStore.baseURL, model: settingsStore.model)
@@ -473,6 +484,7 @@ public final class MenuBarManager: NSObject, NSMenuDelegate {
             case .needsSetup: throw TranslateError.noAPIKey
             }
             let result = try TranslationOutputValidator.validate(output)
+            os_log("engine.succeeded unchanged=%{public}d", log: appLog, type: .debug, result == selectedText)
             if mode == .ai { licenseManager.recordTranslation() }
             let pasteOutcome = try? await ClipboardManager.pasteText(result, replacing: selection.target)
             if pasteOutcome == .pasteRequested {

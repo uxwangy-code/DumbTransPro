@@ -139,7 +139,7 @@ struct ClipboardManagerTests {
             var pasted: String?
             events.paste = { pasted = board.string; return true }
             let manager = ClipboardCoordinator(pasteboard: board, targets: observer, events: events, wait: { _ in
-                if userCopiesAgain { board.writeText("user copied") }
+                if userCopiesAgain, pasted != nil { board.writeText("user copied") }
             })
             let result = try await manager.pasteText("你好", replacing: observer.target)
             #expect(result == .pasteRequested)
@@ -148,6 +148,83 @@ struct ClipboardManagerTests {
             else { #expect(board.items == original) }
             #expect(!manager.isBusy)
         }
+    }
+
+    @Test func pasteLetsReceiverObserveNewClipboardBeforeSendingKey() async throws {
+        let board = FakePasteboard()
+        board.writeText("previous")
+        let observer = FakeTargetObserver()
+        let events = FakeClipboardEvents()
+        var receiverHasObservedChange = false
+        var received: String?
+        var sent = false
+        events.paste = {
+            sent = true
+            // Chromium can discard a paste if its delayed clipboard-change
+            // notification arrives during the command (crbug.com/568453825).
+            if receiverHasObservedChange { received = board.string }
+            return true
+        }
+        let manager = ClipboardCoordinator(pasteboard: board, targets: observer, events: events, wait: { _ in
+            if !sent, board.string == "你好" { receiverHasObservedChange = true }
+        })
+        let result = try await manager.pasteText("你好", replacing: observer.target)
+        #expect(result == .pasteRequested)
+        #expect(received == "你好")
+        #expect(board.string == "previous")
+    }
+
+    @Test func focusChangeWhileClipboardSettlesPreventsPaste() async throws {
+        let board = FakePasteboard()
+        board.writeText("previous")
+        let observer = FakeTargetObserver()
+        let originalTarget = observer.target
+        let events = FakeClipboardEvents()
+        var pastes = 0
+        events.paste = { pastes += 1; return true }
+        let manager = ClipboardCoordinator(pasteboard: board, targets: observer, events: events, wait: { _ in
+            observer.pid = 2
+        })
+        let result = try await manager.pasteText("你好", replacing: originalTarget)
+        #expect(result == .targetChanged)
+        #expect(pastes == 0)
+        #expect(board.string == "previous")
+    }
+
+    @Test func userCopyWhileClipboardSettlesPreventsPasteAndKeepsNewCopy() async {
+        let board = FakePasteboard()
+        board.writeText("previous")
+        let observer = FakeTargetObserver()
+        let events = FakeClipboardEvents()
+        var pastes = 0
+        events.paste = { pastes += 1; return true }
+        let manager = ClipboardCoordinator(pasteboard: board, targets: observer, events: events, wait: { _ in
+            board.writeText("user copied")
+        })
+        await #expect(throws: ClipboardOperationError.clipboardChanged) {
+            try await manager.pasteText("你好", replacing: observer.target)
+        }
+        #expect(pastes == 0)
+        #expect(board.string == "user copied")
+        #expect(!manager.isBusy)
+    }
+
+    @Test func cancellationWhileClipboardSettlesRestoresClipboardWithoutPasting() async {
+        let board = FakePasteboard()
+        board.writeText("previous")
+        let observer = FakeTargetObserver()
+        let events = FakeClipboardEvents()
+        var pastes = 0
+        events.paste = { pastes += 1; return true }
+        let manager = ClipboardCoordinator(pasteboard: board, targets: observer, events: events, wait: { _ in
+            throw CancellationError()
+        })
+        await #expect(throws: CancellationError.self) {
+            try await manager.pasteText("你好", replacing: observer.target)
+        }
+        #expect(pastes == 0)
+        #expect(board.string == "previous")
+        #expect(!manager.isBusy)
     }
 
     @Test func cancelledCopyRestoresOwnedClipboardAndReleasesGate() async {

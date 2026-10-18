@@ -1,5 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
+import os.log
+
+private let hotkeyLog = OSLog(subsystem: "com.whimsycode.dumbtrans-pro", category: "hotkey")
 
 @MainActor
 public final class HotkeyManager {
@@ -48,10 +51,12 @@ public final class HotkeyManager {
     }
 
     public func pauseAll() {
+        os_log("hotkey.pause_all", log: hotkeyLog, type: .debug)
         backend.pauseAll()
     }
 
     public func resumeAll() {
+        os_log("hotkey.resume_all", log: hotkeyLog, type: .debug)
         backend.resumeAll()
     }
 
@@ -62,14 +67,18 @@ public final class HotkeyManager {
             let hotKey = try backend.register(
                 config: config,
                 onKeyDown: { [weak self] in
+                    os_log("hotkey.key_down action=%{public}@", log: hotkeyLog, type: .debug,
+                           action.persistenceKey)
                     Task { @MainActor [weak self] in
                         self?.onAction?(action)
                     }
                 }
             )
             hotKeys[action] = hotKey
+            os_log("hotkey.registered action=%{public}@", log: hotkeyLog, type: .debug, action.persistenceKey)
             return nil
         } catch KS_HotKey.RegisterError.carbonStatus(let status) {
+            os_log("hotkey.registration_failed status=%{public}d", log: hotkeyLog, type: .error, status)
             switch status {
             case OSStatus(eventHotKeyExistsErr): return .duplicateInProcess
             case OSStatus(paramErr):              return .invalidParameter

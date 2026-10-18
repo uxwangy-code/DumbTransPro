@@ -1,5 +1,8 @@
 import AppKit
 import Carbon.HIToolbox
+import os.log
+
+private let clipboardLog = OSLog(subsystem: "com.whimsycode.dumbtrans-pro", category: "clipboard")
 
 public enum ClipboardOperationError: Error, Equatable, LocalizedError {
     case busy
@@ -95,14 +98,19 @@ final class ClipboardCoordinator {
         // Capture before the first suspension, while the hotkey's app is still focused.
         let pid = targets.frontmostProcessIdentifier()
         let target = targets.capture()
+        os_log("capture.begin axTarget=%{public}d", log: clipboardLog, type: .debug, target != nil)
         try await wait(120)
         try Task.checkCancellation()
-        guard sameCaptureTarget(pid: pid, target: target) else { throw ClipboardOperationError.targetChanged }
+        guard sameCaptureTarget(pid: pid, target: target) else {
+            os_log("capture.target_changed_before_copy", log: clipboardLog, type: .debug)
+            throw ClipboardOperationError.targetChanged
+        }
 
         let initialCount = pasteboard.changeCount
         let original = pasteboard.snapshot()
         guard pasteboard.changeCount == initialCount else { throw ClipboardOperationError.clipboardChanged }
         guard events.requestCopy() else { throw ClipboardOperationError.eventUnavailable }
+        os_log("capture.copy_sent", log: clipboardLog, type: .debug)
 
         var ownedCount: Int?
         defer {
@@ -121,19 +129,27 @@ final class ClipboardCoordinator {
                 let count = pasteboard.changeCount
                 let text = pasteboard.string
                 // A different string cannot belong to the selection we copied. Leave it untouched.
-                if let target, text != target.selectedText { throw ClipboardOperationError.clipboardChanged }
+                if let target, text != target.selectedText {
+                    os_log("capture.clipboard_mismatch", log: clipboardLog, type: .debug)
+                    throw ClipboardOperationError.clipboardChanged
+                }
                 // Without an AX text snapshot, a new value might be the user's own copy.
                 // We can show it as a manual result, but cannot safely restore over it.
                 if target != nil { ownedCount = count }
                 try Task.checkCancellation()
-                guard sameCaptureTarget(pid: pid, target: target) else { throw ClipboardOperationError.targetChanged }
+                guard sameCaptureTarget(pid: pid, target: target) else {
+                    os_log("capture.target_changed_after_copy", log: clipboardLog, type: .debug)
+                    throw ClipboardOperationError.targetChanged
+                }
                 guard pasteboard.changeCount == count else { throw ClipboardOperationError.clipboardChanged }
                 guard let text, !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+                os_log("capture.succeeded axTarget=%{public}d", log: clipboardLog, type: .debug, target != nil)
                 return ClipboardSelection(text: text, target: target)
             }
             try Task.checkCancellation()
             guard sameCaptureTarget(pid: pid, target: target) else { throw ClipboardOperationError.targetChanged }
         }
+        os_log("capture.copy_timed_out", log: clipboardLog, type: .debug)
         return nil
     }
 
@@ -144,7 +160,10 @@ final class ClipboardCoordinator {
         try Task.checkCancellation()
         let output = try TranslationOutputValidator.validate(text)
         guard let target, target.matches(targets.capture()),
-              targets.frontmostProcessIdentifier() == target.processIdentifier else { return .targetChanged }
+              targets.frontmostProcessIdentifier() == target.processIdentifier else {
+            os_log("paste.target_unavailable_or_changed", log: clipboardLog, type: .debug)
+            return .targetChanged
+        }
 
         let originalCount = pasteboard.changeCount
         let original = pasteboard.snapshot()
@@ -155,13 +174,27 @@ final class ClipboardCoordinator {
             if pasteboard.changeCount == ownedCount { pasteboard.replace(with: original) }
         }
 
+        // Let the receiver process the asynchronous pasteboard-change notification
+        // before starting Cmd+V. Chromium can otherwise invalidate its paste token
+        // mid-command even when the data is unchanged (crbug.com/568453825).
+        try await wait(100)
+        try Task.checkCancellation()
+
         // No actor suspension occurs between the last check and Cmd+V.
         guard target.matches(targets.capture()),
-              targets.frontmostProcessIdentifier() == target.processIdentifier else { return .targetChanged }
+              targets.frontmostProcessIdentifier() == target.processIdentifier else {
+            os_log("paste.target_changed_after_preparation", log: clipboardLog, type: .debug)
+            return .targetChanged
+        }
         guard pasteboard.changeCount == ownedCount else { throw ClipboardOperationError.clipboardChanged }
+        os_log("paste.clipboard_matches_output=%{public}d", log: clipboardLog, type: .debug,
+               pasteboard.string == output)
         guard events.requestPaste() else { throw ClipboardOperationError.eventUnavailable }
+        os_log("paste.sent", log: clipboardLog, type: .debug)
         // Allow the receiving app to consume Cmd+V before restoring our temporary clipboard.
         try? await wait(250)
+        os_log("paste.after_wait ownership=%{public}d matchesOutput=%{public}d", log: clipboardLog, type: .debug,
+               pasteboard.changeCount == ownedCount, pasteboard.string == output)
         return .pasteRequested
     }
 
@@ -202,6 +235,8 @@ private final class SystemClipboardEvents: ClipboardEventSending {
     func requestCopy() -> Bool { send(key: UInt16(kVK_ANSI_C)) }
     func requestPaste() -> Bool { send(key: UInt16(kVK_ANSI_V)) }
     private func send(key: UInt16) -> Bool {
+        os_log("key_event key=%{public}d heldModifiers=%{public}llu", log: clipboardLog, type: .debug,
+               key, CGEventSource.flagsState(.combinedSessionState).rawValue)
         let source = CGEventSource(stateID: .combinedSessionState)
         source?.localEventsSuppressionInterval = 0
         guard let down = CGEvent(keyboardEventSource: source, virtualKey: key, keyDown: true),
