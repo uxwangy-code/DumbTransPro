@@ -3,6 +3,27 @@
     <channel>
         <title>DumbTransPro</title>
         <item>
+            <title>1.5.5</title>
+            <pubDate>Tue, 20 Oct 2026 10:25:03 -0400</pubDate>
+            <link>https://github.com/uxwangy-code/DumbTransPro</link>
+            <sparkle:version>155</sparkle:version>
+            <sparkle:shortVersionString>1.5.5</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[# v1.5.5 — 可靠性与使用统计
+
+- 原地翻译前复核窗口、控件和选区；目标变化时保留译文供复制。
+- 取词和粘贴共用并发保护，避免覆盖你刚复制的内容。
+- 改善 Chrome 中译文偶尔无法写入的问题，粘贴前等待剪贴板同步并再次复核目标。
+- 拒绝截断、空白及无有效文本的译文。
+- 授权服务临时异常保留 Pro，钥匙串保存失败明确提示。
+- 修复无有效修饰键的快捷键录制，语言包提示直达翻译设置。
+- 新增自愿开启的安装级使用统计与有限离线重试。设置中可关闭、复制编号及申请删除记录。
+- 更新中英双语隐私说明及首次使用指引。
+]]></description>
+            <enclosure url="https://github.com/uxwangy-code/DumbTransPro/releases/download/v1.5.5/DumbTransPro-1.5.5.zip" length="3881828" type="application/octet-stream" sparkle:edSignature="bwm7+c9tkw1Jfotll5401Gx7wI+itGMJ9ecEtVrdVT32lFi7VKfepJi7S7Xn6S9B9fuf3uBG/WPtEwfxO+PUDg=="/>
+        </item>
+        <item>
             <title>1.5.4</title>
             <pubDate>Thu, 30 Jul 2026 09:01:13 +0800</pubDate>
             <link>https://github.com/uxwangy-code/DumbTransPro</link>
